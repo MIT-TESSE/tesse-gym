@@ -115,7 +115,7 @@ class TesseEnv(GymEnv):
         return self.observe().images[0]
 
     def render(self, mode="rgb_array"):
-        raise self.observe().images[0]
+        return self.observe().images[0]
 
     def close(self):
         self.proc.kill()
