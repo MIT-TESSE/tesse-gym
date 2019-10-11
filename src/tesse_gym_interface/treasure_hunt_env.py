@@ -4,6 +4,7 @@ import numpy as np
 import time
 from gym import spaces
 from scipy.spatial.transform import Rotation
+from enum import Enum
 from tesse.msgs import (
     Transform,
     Camera,
@@ -17,6 +18,11 @@ from tesse.msgs import (
     ObjectSpawnMethod,
     RemoveObjectsRequest,
 )
+
+
+class SpawnMethod(Enum):
+    RANDOM = 0
+    NEAR_AGENT = 1
 
 
 class TreasureHuntEnv(TesseEnv):
@@ -33,6 +39,8 @@ class TreasureHuntEnv(TesseEnv):
         max_steps: int = 100,
         n_targets: int = 25,
         success_dist: int = 5,
+        spawn_method: SpawnMethod = SpawnMethod.RANDOM,
+        restart_on_collision = True
     ):
         super().__init__(
             environment_file,
@@ -46,6 +54,8 @@ class TreasureHuntEnv(TesseEnv):
         self.n_targets = n_targets
         self.success_dist = success_dist
         self.max_steps = max_steps
+        self.spawn_method = spawn_method
+        self.restart_on_collision = restart_on_collision
 
     @property
     def action_space(self):
@@ -69,9 +79,15 @@ class TreasureHuntEnv(TesseEnv):
         """ Reset the sim, respawn agent, and spawn targets. """
         self.done = False
         self.steps = 0
-        radius_range = (3, 5)
-        angle_range = (170, 190)
-        self._spawn_targets_near_agent(radius_range, angle_range)
+
+        if self.spawn_method == SpawnMethod.RANDOM:
+            self._randomly_spawn_agent_and_targets()
+        elif self.spawn_method == SpawnMethod.NEAR_AGENT:
+            radius_range = (3, 5)
+            angle_range = (170, 190)
+            self._spawn_targets_near_agent(radius_range, angle_range)
+        else:
+            raise ValueError("Invalid spawn method")
 
         return self.observe().images[0]
 
@@ -126,7 +142,10 @@ class TreasureHuntEnv(TesseEnv):
     def _apply_action(self, action):
         """ Make agent take the specified action. """
         if action == 0:
-            self.env.send(Transform(0, 0.5, 0))  # forward
+            # forward, a bit of a hack to accommodate thin colliders
+            self.env.send(Transform(0, 0.2, 0))  # forward
+            self.env.send(Transform(0, 0.2, 0))
+            self.env.send(Transform(0, 0.1, 0))
         elif action == 1:
             self.env.send(Transform(0, 0, 8))  # turn right
         elif action == 2:
@@ -155,6 +174,13 @@ class TreasureHuntEnv(TesseEnv):
         agent_position = self._get_agent_position(agent_data.metadata)
         target_position = self._get_target_positions(targets.metadata)
 
+        # Agent can fall out of scenes
+        # TODO fix this
+        if agent_position[1] < 1:
+            reward = 1  # discourage falling out of windows, etc
+            self.done = True
+            return reward
+
         reward = -0.01  # small time penalty
         if target_position.shape[0] > 0:
             # only compare (x, z) coords
@@ -177,7 +203,7 @@ class TreasureHuntEnv(TesseEnv):
         if self.steps > self.max_steps:
             self.done = True
 
-        if self._collision(agent_data.metadata):
+        if self.restart_on_collision and self._collision(agent_data.metadata):
             self.done = True
 
         return reward
