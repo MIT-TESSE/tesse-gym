@@ -143,12 +143,10 @@ class TreasureHuntEnv(TesseEnv):
         """ Make agent take the specified action. """
         if action == 0:
             # forward, a bit of a hack to accommodate thin colliders
-            self.env.send(Transform(0, 0.2, 0))
-            time.sleep(0.025)  # so messages don't get dropped
-            self.env.send(Transform(0, 0.2, 0))
-            time.sleep(0.025)
-            self.env.send(Transform(0, 0.1, 0))
-            time.sleep(0.025)
+            for _ in range(4):
+                self.env.send(Transform(0, 0.1, 0))
+                time.sleep(0.02)  # so messages don't get dropped
+            self.env.send(Transform(0, 0.1, 0))  # don't need a final sleep call
         elif action == 1:
             self.env.send(Transform(0, 0, 8))  # turn right
         elif action == 2:
