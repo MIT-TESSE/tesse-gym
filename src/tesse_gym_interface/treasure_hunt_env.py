@@ -40,7 +40,8 @@ class TreasureHuntEnv(TesseEnv):
         n_targets: int = 25,
         success_dist: int = 5,
         spawn_method: SpawnMethod = SpawnMethod.RANDOM,
-        restart_on_collision = True
+        restart_on_collision: bool = True,
+        init_hook: callable = None
     ):
         super().__init__(
             environment_file,
@@ -57,6 +58,10 @@ class TreasureHuntEnv(TesseEnv):
         self.spawn_method = spawn_method
         self.restart_on_collision = restart_on_collision
 
+        #  any experiment specific settings go here
+        if init_hook:
+            init_hook(self)
+
     @property
     def action_space(self):
         return spaces.Discrete(4)
@@ -70,7 +75,6 @@ class TreasureHuntEnv(TesseEnv):
         cameras = [
             (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
             (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
-            (Camera.DEPTH, Compression.OFF, Channels.THREE),
         ]
         agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
         return agent_data
@@ -190,7 +194,7 @@ class TreasureHuntEnv(TesseEnv):
             dists = np.linalg.norm(target_position - agent_position, axis=-1)
 
             # can we see the target
-            seg, depth = agent_data.images[1], agent_data.images[2]
+            seg = agent_data.images[1]
             target_in_fov = np.all(seg == self.TARGET_COLOR, axis=-1)
 
             # if the agent is within `success_dist` of target, can see it,
