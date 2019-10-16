@@ -17,7 +17,6 @@ class TesseEnv(GymEnv):
         "steps are undefined behavior. "
     )
     shape = (240, 320, 3)  # TODO make this adjustable?
-    framerate = 30
 
     def __init__(
         self,
@@ -28,6 +27,7 @@ class TesseEnv(GymEnv):
         base_port: int = 9000,
         scene_id: int = None,
         max_steps: int = 40,
+        step_rate: int = -1
     ):
         """
         Args:
@@ -69,7 +69,10 @@ class TesseEnv(GymEnv):
             time.sleep(10)  # wait for sim to initialize
             self.env.send(SceneRequest(scene_id))
 
-        self.env.request(SetFrameRate(self.framerate))
+        self.step_mode = False
+        if step_rate > 0:
+            self.env.request(SetFrameRate(step_rate))
+            self.step_mode = True
 
         self.metadata = {"render.modes": ["rgb_array"]}
         self.reward_range = (-float("inf"), float("inf"))

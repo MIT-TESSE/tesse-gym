@@ -59,6 +59,8 @@ class TreasureHuntEnv(TesseEnv):
         self.spawn_method = spawn_method
         self.restart_on_collision = restart_on_collision
 
+        self.TransformMessage = StepWithTransform if self.step_mode else Transform
+
         #  any experiment specific settings go here
         if init_hook:
             init_hook(self)
@@ -149,13 +151,13 @@ class TreasureHuntEnv(TesseEnv):
         if action == 0:
             # forward, a bit of a hack to accommodate thin colliders
             for _ in range(4):
-                self.env.send(StepWithTransform(0, 0.1, 0))
+                self.env.send(self.TransformMessage(0, 0.1, 0))
                 time.sleep(0.02)  # so messages don't get dropped
-            self.env.send(StepWithTransform(0, 0.1, 0))  # don't need a final sleep call
+            self.env.send(self.TransformMessage(0, 0.1, 0))  # don't need a final sleep call
         elif action == 1:
-            self.env.send(StepWithTransform(0, 0, 8))  # turn right
+            self.env.send(self.TransformMessage(0, 0, 8))  # turn right
         elif action == 2:
-            self.env.send(StepWithTransform(0, 0, -8))  # turn left
+            self.env.send(self.TransformMessage(0, 0, -8))  # turn left
         elif action != 3:
             raise ValueError(f"Unexpected action {action}")
 
