@@ -3,7 +3,7 @@ import subprocess
 import numpy as np
 from gym import Env as GymEnv, logger, spaces
 from tesse.env import Env
-from tesse.msgs import Camera, Compression, Channels, DataRequest, Respawn, SceneRequest
+from tesse.msgs import Camera, Compression, Channels, DataRequest, Respawn, SetFrameRate, SceneRequest
 
 import time
 
@@ -17,6 +17,7 @@ class TesseEnv(GymEnv):
         "steps are undefined behavior. "
     )
     shape = (240, 320, 3)  # TODO make this adjustable?
+    framerate = 30
 
     def __init__(
         self,
@@ -67,6 +68,8 @@ class TesseEnv(GymEnv):
         if scene_id:
             time.sleep(10)  # wait for sim to initialize
             self.env.send(SceneRequest(scene_id))
+
+        self.env.request(SetFrameRate(self.framerate))
 
         self.metadata = {"render.modes": ["rgb_array"]}
         self.reward_range = (-float("inf"), float("inf"))
