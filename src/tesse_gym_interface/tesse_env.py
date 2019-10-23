@@ -63,6 +63,7 @@ class TesseEnv(GymEnv):
             position_port=base_port + worker_id * self.N_PORTS,
             metadata_port=base_port + worker_id * self.N_PORTS + 1,
             image_port=base_port + worker_id * self.N_PORTS + 2,
+            step_port=base_port + worker_id * self.N_PORTS + 5,
         )
 
         if scene_id:

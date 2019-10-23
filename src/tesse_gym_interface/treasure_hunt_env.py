@@ -38,6 +38,7 @@ class TreasureHuntEnv(TesseEnv):
         base_port: int = 9000,
         scene_id: int = None,
         max_steps: int = 100,
+        step_rate: int = -1,
         n_targets: int = 25,
         success_dist: int = 5,
         spawn_method: SpawnMethod = SpawnMethod.RANDOM,
@@ -52,6 +53,7 @@ class TreasureHuntEnv(TesseEnv):
             base_port,
             scene_id,
             max_steps,
+            step_rate
         )
         self.n_targets = n_targets
         self.success_dist = success_dist
