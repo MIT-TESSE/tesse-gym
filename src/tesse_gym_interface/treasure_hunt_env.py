@@ -187,7 +187,7 @@ class TreasureHuntEnv(TesseEnv):
         # Agent can fall out of scenes
         # TODO fix this
         if agent_position[1] < 1:
-            reward = 1  # discourage falling out of windows, etc
+            reward = -1  # discourage falling out of windows, etc
             self.done = True
             return reward
 
