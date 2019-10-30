@@ -84,6 +84,7 @@ class TesseEnv(GymEnv):
 
     @property
     def observation_space(self):
+        """ Space observed by the agent. """
         return spaces.Box(0, 255, dtype=np.uint8, shape=self.shape)
 
     def step(self, action):
@@ -116,15 +117,22 @@ class TesseEnv(GymEnv):
         return self.env.request(DataRequest(metadata=True, cameras=cameras))
 
     def reset(self):
+        """ Reset environment and respawn agent.
+
+        Returns:
+            Observation.
+        """
         self.done = False
         self.steps = 0
         self.env.send(Respawn())
         return self.observe().images[0]
 
     def render(self, mode="rgb_array"):
+        """ Get observation. """
         return self.observe().images[0]
 
     def close(self):
+        """ Kill simulation. """
         self.proc.kill()
 
     @property

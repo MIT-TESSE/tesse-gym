@@ -21,11 +21,6 @@ from tesse.msgs import (
 )
 
 
-class SpawnMethod(Enum):
-    RANDOM = 0
-    NEAR_AGENT = 1
-
-
 class TreasureHuntEnv(TesseEnv):
     TARGET_COLOR = (245, 231, 50)
 
@@ -41,10 +36,27 @@ class TreasureHuntEnv(TesseEnv):
         step_rate: int = -1,
         n_targets: int = 25,
         success_dist: int = 5,
-        spawn_method: SpawnMethod = SpawnMethod.RANDOM,
         restart_on_collision: bool = True,
         init_hook: callable = None
     ):
+        """ Initialize the TESSE treasure hunt environment.
+
+            Args:
+                environment_file: path to TESSE executable.
+                simulation_ip: TESSE IP address
+                own_ip: Interface IP address.
+                worker_id: subprocess worker id.
+                base_port:
+                scene_id: int of scene id to load.
+                max_steps: Number of steps in the episode.
+                step_rate:
+                n_targets: Number of targets to spawn in the scene.
+                success_dist: Distance target must be from agent to
+                    be considered found. Target must also be in agent's
+                    field of view.
+                init_hook: Method to adjust any experiment specific parameters
+                    upon startup (e.g. camera parameters).
+        """
         super().__init__(
             environment_file,
             simulation_ip,
@@ -58,7 +70,6 @@ class TreasureHuntEnv(TesseEnv):
         self.n_targets = n_targets
         self.success_dist = success_dist
         self.max_steps = max_steps
-        self.spawn_method = spawn_method
         self.restart_on_collision = restart_on_collision
 
         self.TransformMessage = StepWithTransform if self.step_mode else Transform
@@ -69,14 +80,19 @@ class TreasureHuntEnv(TesseEnv):
 
     @property
     def action_space(self):
+        """ Actions available to agent. """
         return spaces.Discrete(4)
 
     @property
     def observation_space(self):
+        """ Space observed by the agent """
         return spaces.Box(0, 255, dtype=np.uint8, shape=self.shape)
 
     def observe(self):
-        """ Observe state. """
+        """ Observe the state.
+
+        Returns
+            A `DataResponse` object. """
         cameras = [
             (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
             (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
@@ -85,68 +101,21 @@ class TreasureHuntEnv(TesseEnv):
         return agent_data
 
     def reset(self):
-        """ Reset the sim, respawn agent, and spawn targets. """
+        """ Reset the sim, randomly respawn agent and targets.
+
+        Returns:
+            Observed image. """
         self.done = False
         self.steps = 0
 
-        if self.spawn_method == SpawnMethod.RANDOM:
-            self._randomly_spawn_agent_and_targets()
-        elif self.spawn_method == SpawnMethod.NEAR_AGENT:
-            radius_range = (3, 5)
-            angle_range = (170, 190)
-            self._spawn_targets_near_agent(radius_range, angle_range)
-        else:
-            raise ValueError("Invalid spawn method")
-
-        return self.observe().images[0]
-
-    def _randomly_spawn_agent_and_targets(self):
-        """ Randomly spawn agents and targets around the scene. """
         self.env.send(Respawn())
         self.env.request(RemoveObjectsRequest())
-
         for i in range(self.n_targets):
             self.env.request(
                 SpawnObjectRequest(ObjectType.CUBE, ObjectSpawnMethod.RANDOM)
             )
 
-    def _spawn_targets_near_agent(self, radius_range, angle_range):
-        """ Randomly spawn agent then spawn targets within `radius_range`
-        and `angle_range` of target. """
-        self.env.request(Respawn())
-        self.env.request(RemoveObjectsRequest())
-
-        response = self.env.request(
-            DataRequest(cameras=[(Camera.RGB_LEFT, Compression.OFF, Channels.THREE)])
-        )
-        x, y, z = self._get_agent_position(response.metadata)
-        rot_x, rot_z, rot_y = self._get_agent_rotation(response.metadata)
-
-        radii = self._sample_range(self.n_targets, *radius_range)
-        angles = self._sample_angles(self.n_targets, *angle_range)
-        orientation = [0.4619398, 0.1913417, 0.4619398, 0.7325378]
-
-        for radius, angle in zip(radii, np.deg2rad(angles)):
-            angle = (angle + rot_y) % (2 * np.pi)  # recenter rotation on agent
-            response = self.env.request(
-                SpawnObjectRequest(
-                    ObjectType.CUBE,
-                    ObjectSpawnMethod.USER,
-                    x + radius * np.sin(angle),
-                    y,
-                    z + radius * np.cos(angle),
-                    *orientation,
-                )
-            )
-
-    def _sample_range(self, n_samples, low, high):
-        """ Randomly sample value within `low` and `high`"""
-        return np.random.random(n_samples) * (high - low) + low
-
-    def _sample_angles(self, n_samples, low, high):
-        """ Sample an angle, in degrees, between `low` and `high`. """
-        high = high + 360 if high < low else high
-        return (np.random.random(n_samples) * (high - low) + low) % 360
+        return self.observe().images[0]
 
     def _apply_action(self, action):
         """ Make agent take the specified action. """
@@ -176,6 +145,14 @@ class TreasureHuntEnv(TesseEnv):
                and has given the 'done' signal (action == 3).
             - Small time penalty
             - taken from https://arxiv.org/pdf/1609.05143.pdf
+
+        Args:
+            observation: `DataResponse` object containing images
+                and metadata used to compute the reward.
+            action: action  taken by agent.
+
+        Returns:
+            Computed reward.
         """
         targets = self.env.request(ObjectsRequest())
         agent_data = observation
@@ -185,7 +162,6 @@ class TreasureHuntEnv(TesseEnv):
         target_position = self._get_target_positions(targets.metadata)
 
         # Agent can fall out of scenes
-        # TODO fix this
         if agent_position[1] < 1:
             reward = -1  # discourage falling out of windows, etc
             self.done = True
@@ -193,12 +169,12 @@ class TreasureHuntEnv(TesseEnv):
 
         reward = -0.01  # small time penalty
         if target_position.shape[0] > 0:
-            # only compare (x, z) coords
+            # only compare (x, z) coordinates
             agent_position = agent_position[np.newaxis, (0, 2)]
             target_position = target_position[:, (0, 2)]
             dists = np.linalg.norm(target_position - agent_position, axis=-1)
 
-            # can we see the target
+            # can we see the target?
             seg = agent_data.images[1]
             target_in_fov = np.all(seg == self.TARGET_COLOR, axis=-1)
 
@@ -218,18 +194,28 @@ class TreasureHuntEnv(TesseEnv):
 
         return reward
 
-    def _distance_from_target_reward(self, target_in_fov, depth):
-        """ Give a reward based on distance from the closest target. """
-        depth_on_target = depth[target_in_fov] / 255.0
-        return max(0.01 * (1 - depth_on_target.min()), 0)
-
     def _collision(self, metadata):
+        """ Check for collision with environment.
+
+        Args:
+            metadata: metadata string.
+
+        Returns:
+            boolean, true if agent has collided with the environment. Otherwise, false.
+        """
         return (
             ET.fromstring(metadata).find("collision").attrib["status"].lower() == "true"
         )
 
     def _get_agent_position(self, agent_metadata):
-        """ Get the agent's position from metadata. """
+        """ Get the agent's position from metadata.
+
+        Args:
+            agent_metadata: metadata string.
+
+        Returns:
+            ndarray of shape (3,) containing the agents (x, y, z) position.
+        """
         return (
             np.array(
                 self._read_position(ET.fromstring(agent_metadata).find("position"))
@@ -239,6 +225,15 @@ class TreasureHuntEnv(TesseEnv):
         )
 
     def _get_agent_rotation(self, agent_metadata):
+        """ Get the agent's rotation.
+
+        Args:
+            agent_metadata: metadata string.
+
+        Returns:
+            ndarray of shape (3,) containing (z, x, y)
+                euler angles.
+        """
         root = ET.fromstring(agent_metadata)
         x = float(root.find('quaternion').attrib['x'])
         y = float(root.find('quaternion').attrib['y'])
@@ -247,7 +242,15 @@ class TreasureHuntEnv(TesseEnv):
         return Rotation((x, y, z, w)).as_euler('zxy')
 
     def _get_target_positions(self, target_metadata):
-        """ Get target positions from metadata. """
+        """ Get target positions from metadata.
+
+        Args:
+            target_metadata: metadata string.
+
+        Returns:
+            ndarray, shape (n, 3), of (x, y, z) positions for the
+                n targets.
+        """
         return np.array(
             [
                 self._read_position(o.find("position"))
@@ -256,7 +259,14 @@ class TreasureHuntEnv(TesseEnv):
         ).astype(np.float32)
 
     def _read_position(self, pos):
-        """ Get (x, z) coordinates from metadata. """
+        """ Get (x, y, z) coordinates from metadata.
+
+        Args:
+            pos: XML element from metadata string.
+
+        Returns:
+            ndarray, shape (3, ), or (x, y, z) positions.
+        """
         return np.array(
             [pos.attrib["x"], pos.attrib["y"], pos.attrib["z"]], dtype=np.float32
         )
