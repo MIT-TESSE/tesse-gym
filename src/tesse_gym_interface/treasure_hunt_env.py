@@ -4,7 +4,6 @@ import numpy as np
 import time
 from gym import spaces
 from scipy.spatial.transform import Rotation
-from enum import Enum
 from tesse.msgs import (
     Transform,
     Camera,

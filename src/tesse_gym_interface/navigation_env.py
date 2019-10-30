@@ -7,9 +7,14 @@ from tesse.msgs import Transform
 class NavigationEnv(TesseEnv):
     @property
     def action_space(self):
+        """ Agent can turn left, right, or move forward. """
         return spaces.Discrete(3)
 
     def _apply_action(self, action):
+        """ Turn left, right, or move forward.
+        Args:
+            action: action from `action_space`.
+        """
         if action == 0:
             self.env.send(Transform(0, 0.5, 0))  # forward
         elif action == 1:
@@ -20,6 +25,16 @@ class NavigationEnv(TesseEnv):
             pass
 
     def _compute_reward(self, observation, action):
+        """ Reward agent for moving forward. Penalize agent for
+        colliding with the environment.
+
+        Args:
+            observation: Environment observation.
+            action: Agent's action.
+
+        Returns:
+             Computed reward.
+        """
         reward = 0.0
         if action == 0:
             reward += 0.1  # reward for stepping forward
