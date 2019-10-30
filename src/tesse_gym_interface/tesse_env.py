@@ -3,7 +3,7 @@ import subprocess
 import numpy as np
 from gym import Env as GymEnv, logger, spaces
 from tesse.env import Env
-from tesse.msgs import Camera, Compression, Channels, DataRequest, Respawn, SceneRequest
+from tesse.msgs import Camera, Compression, Channels, DataRequest, Respawn, SetFrameRate, SceneRequest
 
 import time
 
@@ -27,6 +27,7 @@ class TesseEnv(GymEnv):
         base_port: int = 9000,
         scene_id: int = None,
         max_steps: int = 40,
+        step_rate: int = -1
     ):
         """
         Args:
@@ -62,11 +63,17 @@ class TesseEnv(GymEnv):
             position_port=base_port + worker_id * self.N_PORTS,
             metadata_port=base_port + worker_id * self.N_PORTS + 1,
             image_port=base_port + worker_id * self.N_PORTS + 2,
+            step_port=base_port + worker_id * self.N_PORTS + 5,
         )
 
         if scene_id:
             time.sleep(10)  # wait for sim to initialize
             self.env.send(SceneRequest(scene_id))
+
+        self.step_mode = False
+        if step_rate > 0:
+            self.env.request(SetFrameRate(step_rate))
+            self.step_mode = True
 
         self.metadata = {"render.modes": ["rgb_array"]}
         self.reward_range = (-float("inf"), float("inf"))

@@ -17,6 +17,7 @@ from tesse.msgs import (
     ObjectType,
     ObjectSpawnMethod,
     RemoveObjectsRequest,
+    StepWithTransform,
 )
 
 
@@ -37,10 +38,12 @@ class TreasureHuntEnv(TesseEnv):
         base_port: int = 9000,
         scene_id: int = None,
         max_steps: int = 100,
+        step_rate: int = -1,
         n_targets: int = 25,
         success_dist: int = 5,
         spawn_method: SpawnMethod = SpawnMethod.RANDOM,
-        restart_on_collision = True
+        restart_on_collision: bool = True,
+        init_hook: callable = None
     ):
         super().__init__(
             environment_file,
@@ -50,12 +53,19 @@ class TreasureHuntEnv(TesseEnv):
             base_port,
             scene_id,
             max_steps,
+            step_rate
         )
         self.n_targets = n_targets
         self.success_dist = success_dist
         self.max_steps = max_steps
         self.spawn_method = spawn_method
         self.restart_on_collision = restart_on_collision
+
+        self.TransformMessage = StepWithTransform if self.step_mode else Transform
+
+        #  any experiment specific settings go here
+        if init_hook:
+            init_hook(self)
 
     @property
     def action_space(self):
@@ -70,7 +80,6 @@ class TreasureHuntEnv(TesseEnv):
         cameras = [
             (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
             (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
-            (Camera.DEPTH, Compression.OFF, Channels.THREE),
         ]
         agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
         return agent_data
@@ -144,13 +153,13 @@ class TreasureHuntEnv(TesseEnv):
         if action == 0:
             # forward, a bit of a hack to accommodate thin colliders
             for _ in range(4):
-                self.env.send(Transform(0, 0.1, 0))
+                self.env.send(self.TransformMessage(0, 0.1, 0))
                 time.sleep(0.02)  # so messages don't get dropped
-            self.env.send(Transform(0, 0.1, 0))  # don't need a final sleep call
+            self.env.send(self.TransformMessage(0, 0.1, 0))  # don't need a final sleep call
         elif action == 1:
-            self.env.send(Transform(0, 0, 8))  # turn right
+            self.env.send(self.TransformMessage(0, 0, 8))  # turn right
         elif action == 2:
-            self.env.send(Transform(0, 0, -8))  # turn left
+            self.env.send(self.TransformMessage(0, 0, -8))  # turn left
         elif action != 3:
             raise ValueError(f"Unexpected action {action}")
 
@@ -178,7 +187,7 @@ class TreasureHuntEnv(TesseEnv):
         # Agent can fall out of scenes
         # TODO fix this
         if agent_position[1] < 1:
-            reward = 1  # discourage falling out of windows, etc
+            reward = -1  # discourage falling out of windows, etc
             self.done = True
             return reward
 
@@ -190,7 +199,7 @@ class TreasureHuntEnv(TesseEnv):
             dists = np.linalg.norm(target_position - agent_position, axis=-1)
 
             # can we see the target
-            seg, depth = agent_data.images[1], agent_data.images[2]
+            seg = agent_data.images[1]
             target_in_fov = np.all(seg == self.TARGET_COLOR, axis=-1)
 
             # if the agent is within `success_dist` of target, can see it,
