@@ -1,6 +1,6 @@
 # TESSE_gym_interface
 
-Provides a Python interface for reinforcement learning experiments using the TESSE Unity environment and the OpenAI Gym toolkit.
+Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
 
 ## Notes
 
