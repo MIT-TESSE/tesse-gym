@@ -4,6 +4,7 @@ import numpy as np
 import time
 from gym import spaces
 from scipy.spatial.transform import Rotation
+from enum import Enum
 from tesse.msgs import (
     Transform,
     Camera,
@@ -18,6 +19,11 @@ from tesse.msgs import (
     RemoveObjectsRequest,
     StepWithTransform,
 )
+
+
+class HuntMode(Enum):
+    SINGLE = 0
+    MULTIPLE = 1
 
 
 class TreasureHuntEnv(TesseEnv):
@@ -36,7 +42,9 @@ class TreasureHuntEnv(TesseEnv):
         n_targets: int = 25,
         success_dist: int = 5,
         restart_on_collision: bool = True,
-        init_hook: callable = None
+        init_hook: callable = None,
+        hunt_mode: HuntMode = HuntMode.MULTIPLE,
+        target_found_reward: int = 10
     ):
         """ Initialize the TESSE treasure hunt environment.
 
@@ -77,6 +85,10 @@ class TreasureHuntEnv(TesseEnv):
         if init_hook:
             init_hook(self)
 
+        self.target_found_reward = target_found_reward
+        self.hunt_mode = hunt_mode
+        self.n_found_targets = 0
+
     @property
     def action_space(self):
         """ Actions available to agent. """
@@ -106,6 +118,7 @@ class TreasureHuntEnv(TesseEnv):
             Observed image. """
         self.done = False
         self.steps = 0
+        self.n_found_targets = 0
 
         self.env.send(Respawn())
         self.env.request(RemoveObjectsRequest())
@@ -134,7 +147,7 @@ class TreasureHuntEnv(TesseEnv):
     def _success_action(self):
         """ Simple indicator that the agent has achieved the goal. """
         for i in range(0, 360, 360 // 5):
-            self.env.send(Transform(0, 0, 360 // 5))
+            self.env.send(self.TransformMessage(0, 0, 360 // 5))
             time.sleep(0.1)
 
     def _compute_reward(self, observation, action):
@@ -158,7 +171,7 @@ class TreasureHuntEnv(TesseEnv):
 
         # compute agent's distance from targets
         agent_position = self._get_agent_position(agent_data.metadata)
-        target_position = self._get_target_positions(targets.metadata)
+        target_ids, target_position = self._get_target_id_and_positions(targets.metadata)
 
         # Agent can fall out of scenes
         if agent_position[1] < 1:
@@ -180,9 +193,22 @@ class TreasureHuntEnv(TesseEnv):
             # if the agent is within `success_dist` of target, can see it,
             # and gives the `found` action, count as found
             if dists.min() < self.success_dist and target_in_fov.any() and action == 3:
-                self._success_action()  # signal task was successful
-                reward += 10
-                self.done = True
+                # if in `MULTIPLE` mode, remove found targets
+                if self.hunt_mode == HuntMode.MULTIPLE:
+                    found_targets = target_ids[dists < self.success_dist]
+                    self.n_found_targets += len(found_targets)
+                    reward += self.target_found_reward * len(found_targets)
+                    self.env.request(RemoveObjectsRequest(ids=found_targets))
+
+                    # if all targets have been found, restart the  episode
+                    if self.n_found_targets == self.n_targets:
+                        self._success_action()
+                        self.done = True
+                # if in `SINGLE` mode, reset the episode
+                elif self.hunt_mode == HuntMode.SINGLE:
+                    self._success_action()  # signal task was successful
+                    reward += self.target_found_reward
+                    self.done = True
 
         self.steps += 1
         if self.steps > self.max_steps:
@@ -240,22 +266,19 @@ class TreasureHuntEnv(TesseEnv):
         w = float(root.find('quaternion').attrib['w'])
         return Rotation((x, y, z, w)).as_euler('zxy')
 
-    def _get_target_positions(self, target_metadata):
+    def _get_target_id_and_positions(self, target_metadata):
         """ Get target positions from metadata.
-
         Args:
             target_metadata: metadata string.
-
         Returns:
             ndarray, shape (n, 3), of (x, y, z) positions for the
                 n targets.
         """
-        return np.array(
-            [
-                self._read_position(o.find("position"))
-                for o in ET.fromstring(target_metadata).findall("object")
-            ]
-        ).astype(np.float32)
+        position, obj_ids = [], []
+        for obj in ET.fromstring(target_metadata).findall("object"):
+            position.append(self._read_position(obj.find("position")))
+            obj_ids.append(obj.find("id").text)
+        return np.array(obj_ids, dtype=np.uint32), np.array(position, dtype=np.float32)
 
     def _read_position(self, pos):
         """ Get (x, y, z) coordinates from metadata.

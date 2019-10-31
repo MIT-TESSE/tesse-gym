@@ -9,7 +9,7 @@ import time
 
 
 class TesseEnv(GymEnv):
-    N_PORTS = 4
+    N_PORTS = 6
     DONE_WARNING = (
         "You are calling 'step()' even though this environment "
         "has already returned done = True. You should always call "
