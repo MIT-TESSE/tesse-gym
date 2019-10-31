@@ -194,7 +194,7 @@ class TreasureHuntEnv(TesseEnv):
             # and gives the `found` action, count as found
             if dists.min() < self.success_dist and target_in_fov.any() and action == 3:
                 # if in `MULTIPLE` mode, remove found targets
-                if self.hunt_mode == HuntMode.MULTIPLE:
+                if self.hunt_mode.value == HuntMode.MULTIPLE.value:  # TODO: need to compare values?
                     found_targets = target_ids[dists < self.success_dist]
                     self.n_found_targets += len(found_targets)
                     reward += self.target_found_reward * len(found_targets)
