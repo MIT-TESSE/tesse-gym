@@ -37,7 +37,7 @@ class TesseGym(GymEnv):
         "'reset()' once you receive 'done = True' -- any further "
         "steps are undefined behavior. "
     )
-    shape = (240, 320, 3)  # TODO make this adjustable?
+    shape = (240, 320, 3)
 
     def __init__(
         self,
@@ -48,7 +48,8 @@ class TesseGym(GymEnv):
         base_port: int = 9000,
         scene_id: int = None,
         max_steps: int = 40,
-        step_rate: int = -1
+        step_rate: int = -1,
+        init_hook: callable = None
     ):
         """
         Args:
@@ -62,7 +63,8 @@ class TesseGym(GymEnv):
             max_steps (int): Max steps per episode.
             step_rate (int): If specified, game time is fixed to
                 `step_rate` FPS.
-
+            init_hook (callable): Method to adjust any experiment specific parameters
+                upon startup (e.g. camera parameters).
         """
         atexit.register(self.close)
 
@@ -105,6 +107,10 @@ class TesseGym(GymEnv):
         self.max_steps = max_steps
         self.done = False
         self.steps = 0
+
+        #  any experiment specific settings go here
+        if init_hook:
+            init_hook(self)
 
     @property
     def observation_space(self):

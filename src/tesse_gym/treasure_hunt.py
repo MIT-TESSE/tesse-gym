@@ -60,35 +60,35 @@ class TreasureHunt(TesseGym):
         scene_id: int = None,
         max_steps: int = 100,
         step_rate: int = -1,
-        n_targets: int = 25,
-        success_dist: float = 5,
+        n_targets: int = 50,
+        success_dist: float = 2,
         restart_on_collision: bool = False,
         init_hook: callable = None,
         hunt_mode: HuntMode = HuntMode.MULTIPLE,
-        target_found_reward: int = 10
+        target_found_reward: int = 1
     ):
         """ Initialize the TESSE treasure hunt environment.
 
-            Args:
-                environment_file (str): Path to TESSE executable.
-                simulation_ip (str): TESSE IP address
-                own_ip (str): Interface IP address.
-                worker_id (int): Subprocess worker id.
-                base_port (int): Ports are assigned as follows:
-                    position_port = `base_port`
-                    metadata_port = `base_port` + 1
-                    image_port = `base_port` + 2
-                    step_port = `base_port` + 5
-                scene_id (int): Scene id to load.
-                max_steps (int): Maximum number of steps in the episode.
-                step_rate (int): If specified, game time is fixed to
-                    `step_rate` FPS.
-                n_targets (int): Number of targets to spawn in the scene.
-                success_dist (float): Distance target must be from agent to
-                    be considered found. Target must also be in agent's
-                    field of view.
-                init_hook (Callable): Method to adjust any experiment specific parameters
-                    upon startup (e.g. camera parameters).
+        Args:
+            environment_file (str): Path to TESSE executable.
+            simulation_ip (str): TESSE IP address
+            own_ip (str): Interface IP address.
+            worker_id (int): Subprocess worker id.
+            base_port (int): Ports are assigned as follows:
+                position_port = `base_port`
+                metadata_port = `base_port` + 1
+                image_port = `base_port` + 2
+                step_port = `base_port` + 5
+            scene_id (int): Scene id to load.
+            max_steps (int): Maximum number of steps in the episode.
+            step_rate (int): If specified, game time is fixed to
+                `step_rate` FPS.
+            n_targets (int): Number of targets to spawn in the scene.
+            success_dist (float): Distance target must be from agent to
+                be considered found. Target must also be in agent's
+                field of view.
+            init_hook (callable): Method to adjust any experiment specific parameters
+                upon startup (e.g. camera parameters).
         """
         super().__init__(
             environment_file,
@@ -98,7 +98,8 @@ class TreasureHunt(TesseGym):
             base_port,
             scene_id,
             max_steps,
-            step_rate
+            step_rate,
+            init_hook=init_hook
         )
         self.n_targets = n_targets
         self.success_dist = success_dist
@@ -106,10 +107,6 @@ class TreasureHunt(TesseGym):
         self.restart_on_collision = restart_on_collision
 
         self.TransformMessage = StepWithTransform if self.step_mode else Transform
-
-        #  any experiment specific settings go here
-        if init_hook:
-            init_hook(self)
 
         self.target_found_reward = target_found_reward
         self.hunt_mode = hunt_mode
