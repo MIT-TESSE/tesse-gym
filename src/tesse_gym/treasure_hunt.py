@@ -62,7 +62,7 @@ class TreasureHunt(TesseGym):
         step_rate: int = -1,
         n_targets: int = 25,
         success_dist: float = 5,
-        restart_on_collision: bool = True,
+        restart_on_collision: bool = False,
         init_hook: callable = None,
         hunt_mode: HuntMode = HuntMode.MULTIPLE,
         target_found_reward: int = 10
