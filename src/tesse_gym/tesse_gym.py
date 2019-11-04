@@ -139,7 +139,7 @@ class TesseGym(GymEnv):
         response = self.observe()
         reward = self._compute_reward(response, action)
 
-        return response.images[0], reward, self.done, {}
+        return self.form_agent_observation(response), reward, self.done, {}
 
     def observe(self):
         """ Observe state. """
@@ -155,7 +155,7 @@ class TesseGym(GymEnv):
         self.done = False
         self.steps = 0
         self.env.send(Respawn())
-        return self.observe().images[0]
+        return self.form_agent_observation(self.observe())
 
     def render(self, mode="rgb_array"):
         """ Get observation.
@@ -171,6 +171,22 @@ class TesseGym(GymEnv):
     def close(self):
         """ Kill simulation. """
         self.proc.kill()
+
+    def form_agent_observation(self, scene_observation):
+        """ Form agent's observation from a part
+        of all of the information received from TESSE.
+        This is useful if some information is required to compute
+        a reward (e.g. segmentation for finding targets), but
+        that information should not go to the agent.
+
+        Args:
+            scene_observation (DataResponse): tesse_interface
+                `DataResponse` object.
+
+        Returns:
+            np.ndarray: Observation given to the agent.
+        """
+        return scene_observation.images[0]
 
     @property
     def action_space(self):
