@@ -2,10 +2,6 @@
 
 Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
 
-## Notes
-
-Expect some name changes shortly.
-
 ## Setup
 
 Ensure the following dependencies are installed:
