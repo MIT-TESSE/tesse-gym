@@ -11,8 +11,8 @@ Ensure the following dependencies are installed:
 Then, clone the repo and setup the `TESSE_gym_interface` package.
 
 ```sh
-git clone git@github.mit.edu:TESS/TESSE_gym_interface.git
-cd TESSE_gym_interface
+git clone https://github.mit.edu/TESS/tesse-gym.git
+cd tesse_gym
 python setup.py develop
 ```
 
