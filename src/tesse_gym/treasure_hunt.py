@@ -150,7 +150,7 @@ class TreasureHunt(TesseGym):
                 SpawnObjectRequest(ObjectType.CUBE, ObjectSpawnMethod.RANDOM)
             )
 
-        return self.observe().images[0]
+        return self.form_agent_observation(self.observe())
 
     def _apply_action(self, action):
         """ Make agent take the specified action.
