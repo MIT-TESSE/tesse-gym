@@ -38,7 +38,10 @@ class TesseGym(GymEnv):
                 Defaults to 0.
             base_port (int): Interface Base port.
             scene_id (int): Scene to use.
-            max_steps (int): Max steps per episode
+            max_steps (int): Max steps per episode.
+            step_rate (int): If specified, game time is fixed to
+                `step_rate` FPS.
+
         """
         atexit.register(self.close)
 
@@ -92,10 +95,10 @@ class TesseGym(GymEnv):
         reward.
 
         Args:
-            action: An action defined in `self.action_space`.
+            action (action_space): An action defined in `self.action_space`.
 
         Returns:
-            Observation, reward, done, info.
+            (np.ndarray, float, bool, dict): Observation, reward, done, info.
         """
         assert self.action_space.contains(action), "%r (%s) invalid" % (
             action,
@@ -128,7 +131,14 @@ class TesseGym(GymEnv):
         return self.observe().images[0]
 
     def render(self, mode="rgb_array"):
-        """ Get observation. """
+        """ Get observation.
+
+        Args:
+            mode (str): Render mode.
+
+        Returns:
+            np.ndarray: Current observation.
+         """
         return self.observe().images[0]
 
     def close(self):
@@ -141,9 +151,23 @@ class TesseGym(GymEnv):
         raise NotImplementedError
 
     def _apply_action(self, action):
-        """ Apply the given action to the sim. """
+        """ Make agent take the specified action.
+
+        Args:
+            action (action_space): Make agent take `action`.
+
+        """
         raise NotImplementedError
 
     def _compute_reward(self, observation, action):
-        """ Compute the reward based on the agent's observation and action. """
+        """ Compute the reward based on the agent's observation and action.
+
+        Args:
+            observation (DataResponse): Images and metadata used to
+            compute the reward.
+            action (action_space): Action taken by agent.
+
+        Returns:
+            float: Computed reward.
+        """
         raise NotImplementedError

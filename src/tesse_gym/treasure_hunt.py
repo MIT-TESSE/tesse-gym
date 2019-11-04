@@ -1,4 +1,4 @@
-from .tesse_env import TesseEnv
+from .tesse_gym import TesseGym
 import defusedxml.ElementTree as ET
 import numpy as np
 import time
@@ -26,7 +26,7 @@ class HuntMode(Enum):
     MULTIPLE = 1
 
 
-class TreasureHunt(TesseEnv):
+class TreasureHunt(TesseGym):
     TARGET_COLOR = (245, 231, 50)
 
     def __init__(
@@ -40,7 +40,7 @@ class TreasureHunt(TesseEnv):
         max_steps: int = 100,
         step_rate: int = -1,
         n_targets: int = 25,
-        success_dist: int = 5,
+        success_dist: float = 5,
         restart_on_collision: bool = True,
         init_hook: callable = None,
         hunt_mode: HuntMode = HuntMode.MULTIPLE,
@@ -49,19 +49,24 @@ class TreasureHunt(TesseEnv):
         """ Initialize the TESSE treasure hunt environment.
 
             Args:
-                environment_file (str): path to TESSE executable.
+                environment_file (str): Path to TESSE executable.
                 simulation_ip (str): TESSE IP address
                 own_ip (str): Interface IP address.
-                worker_id: subprocess worker id.
-                base_port:
-                scene_id: int of scene id to load.
-                max_steps: Number of steps in the episode.
-                step_rate:
-                n_targets: Number of targets to spawn in the scene.
-                success_dist: Distance target must be from agent to
+                worker_id (int): Subprocess worker id.
+                base_port (int): Ports are assigned as follows:
+                    position_port = `base_port`
+                    metadata_port = `base_port` + 1
+                    image_port = `base_port` + 2
+                    step_port = `base_port` + 5
+                scene_id (int): Scene id to load.
+                max_steps (int): Maximum number of steps in the episode.
+                step_rate (int): If specified, game time is fixed to
+                    `step_rate` FPS.
+                n_targets (int): Number of targets to spawn in the scene.
+                success_dist (float): Distance target must be from agent to
                     be considered found. Target must also be in agent's
                     field of view.
-                init_hook: Method to adjust any experiment specific parameters
+                init_hook (Callable): Method to adjust any experiment specific parameters
                     upon startup (e.g. camera parameters).
         """
         super().__init__(
@@ -103,7 +108,7 @@ class TreasureHunt(TesseEnv):
         """ Observe the state.
 
         Returns
-            A `DataResponse` object. """
+            DataResponse: The `DataResponse` object. """
         cameras = [
             (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
             (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
@@ -115,7 +120,7 @@ class TreasureHunt(TesseEnv):
         """ Reset the sim, randomly respawn agent and targets.
 
         Returns:
-            Observed image. """
+            np.ndarray: The observed image. """
         self.done = False
         self.steps = 0
         self.n_found_targets = 0
@@ -130,9 +135,13 @@ class TreasureHunt(TesseEnv):
         return self.observe().images[0]
 
     def _apply_action(self, action):
-        """ Make agent take the specified action. """
+        """ Make agent take the specified action.
+
+        Args:
+            action (action_space): Make agent take `action`.
+        """
         if action == 0:
-            # forward, a bit of a hack to accommodate thin colliders
+            # move forward, a bit of a hack to accommodate thin colliders
             for _ in range(4):
                 self.env.send(self.TransformMessage(0, 0.1, 0))
                 time.sleep(0.02)  # so messages don't get dropped
@@ -156,15 +165,14 @@ class TreasureHunt(TesseEnv):
               of being within `success_dist` of a target in its FOV
                and has given the 'done' signal (action == 3).
             - Small time penalty
-            - taken from https://arxiv.org/pdf/1609.05143.pdf
 
         Args:
-            observation: `DataResponse` object containing images
-                and metadata used to compute the reward.
-            action: action  taken by agent.
+            observation (DataResponse): Images and metadata used to
+            compute the reward.
+            action (action_space): Action taken by agent.
 
         Returns:
-            Computed reward.
+            float: Computed reward.
         """
         targets = self.env.request(ObjectsRequest())
         agent_data = observation
@@ -223,10 +231,10 @@ class TreasureHunt(TesseEnv):
         """ Check for collision with environment.
 
         Args:
-            metadata: metadata string.
+            metadata (str): Metadata string.
 
         Returns:
-            boolean, true if agent has collided with the environment. Otherwise, false.
+            bool: True if agent has collided with the environment. Otherwise, false.
         """
         return (
             ET.fromstring(metadata).find("collision").attrib["status"].lower() == "true"
@@ -236,10 +244,10 @@ class TreasureHunt(TesseEnv):
         """ Get the agent's position from metadata.
 
         Args:
-            agent_metadata: metadata string.
+            agent_metadata (str): Metadata string.
 
         Returns:
-            ndarray of shape (3,) containing the agents (x, y, z) position.
+            np.ndarray: shape (3,) containing the agents (x, y, z) position.
         """
         return (
             np.array(
@@ -253,10 +261,10 @@ class TreasureHunt(TesseEnv):
         """ Get the agent's rotation.
 
         Args:
-            agent_metadata: metadata string.
+            agent_metadata (str): Metadata string.
 
         Returns:
-            ndarray of shape (3,) containing (z, x, y)
+            np.ndarray: shape (3,) containing (z, x, y)
                 euler angles.
         """
         root = ET.fromstring(agent_metadata)
@@ -269,9 +277,9 @@ class TreasureHunt(TesseEnv):
     def _get_target_id_and_positions(self, target_metadata):
         """ Get target positions from metadata.
         Args:
-            target_metadata: metadata string.
+            target_metadata (str): Metadata string.
         Returns:
-            ndarray, shape (n, 3), of (x, y, z) positions for the
+            np.ndarray: shape (n, 3) of (x, y, z) positions for the
                 n targets.
         """
         position, obj_ids = [], []
@@ -284,10 +292,10 @@ class TreasureHunt(TesseEnv):
         """ Get (x, y, z) coordinates from metadata.
 
         Args:
-            pos: XML element from metadata string.
+            pos (str): XML element from metadata string.
 
         Returns:
-            ndarray, shape (3, ), or (x, y, z) positions.
+            np.ndarray: shape (3, ), or (x, y, z) positions.
         """
         return np.array(
             [pos.attrib["x"], pos.attrib["y"], pos.attrib["z"]], dtype=np.float32
