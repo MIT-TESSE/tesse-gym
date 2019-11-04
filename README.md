@@ -27,7 +27,7 @@ This package provides environments for the following tasks
 
 - Treasure Hunt: The agent must find 'treasures' placed throughout it's environment. See the [example notebook](notebooks/treasure-hunt-training.ipynb) to get started.
 
-![example](docs/treasure_hunt.gif){size=1}
+![example](docs/treasure_hunt.gif)
   
 
 
