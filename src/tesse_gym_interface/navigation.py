@@ -4,7 +4,7 @@ from gym import spaces
 from tesse.msgs import Transform
 
 
-class NavigationEnv(TesseEnv):
+class Navigation(TesseEnv):
     @property
     def action_space(self):
         """ Agent can turn left, right, or move forward. """

@@ -26,7 +26,7 @@ class HuntMode(Enum):
     MULTIPLE = 1
 
 
-class TreasureHuntEnv(TesseEnv):
+class TreasureHunt(TesseEnv):
     TARGET_COLOR = (245, 231, 50)
 
     def __init__(
@@ -49,9 +49,9 @@ class TreasureHuntEnv(TesseEnv):
         """ Initialize the TESSE treasure hunt environment.
 
             Args:
-                environment_file: path to TESSE executable.
-                simulation_ip: TESSE IP address
-                own_ip: Interface IP address.
+                environment_file (str): path to TESSE executable.
+                simulation_ip (str): TESSE IP address
+                own_ip (str): Interface IP address.
                 worker_id: subprocess worker id.
                 base_port:
                 scene_id: int of scene id to load.

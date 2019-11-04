@@ -8,7 +8,7 @@ from tesse.msgs import Camera, Compression, Channels, DataRequest, Respawn, SetF
 import time
 
 
-class TesseEnv(GymEnv):
+class TesseGym(GymEnv):
     N_PORTS = 6
     DONE_WARNING = (
         "You are calling 'step()' even though this environment "
