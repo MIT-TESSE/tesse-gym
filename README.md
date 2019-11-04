@@ -22,8 +22,6 @@ This package provides environments for the following tasks
 - Navigation: The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
 
 - Treasure Hunt: The agent must find 'treasures' placed throughout it's environment. See the [example notebook](notebooks/treasure-hunt-training.ipynb) to get started.
-
-![example](docs/treasure_hunt.gif)
   
 
 
