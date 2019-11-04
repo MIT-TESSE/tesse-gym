@@ -1,16 +1,12 @@
-# TESSE_gym_interface
+# tesse-gym
 
 Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
-
-## Notes
-
-Expect some name changes shortly.
 
 ## Setup
 
 Ensure the following dependencies are installed:
 - [Stable Baselines](https://stable-baselines.readthedocs.io/en/master/)
-- [TESSE_interface](https://github.mit.edu/TESS/TESSE_interface)
+- [tesse-interface](https://github.mit.edu/TESS/TESSE_interface)
 
 Then, clone the repo and setup the `TESSE_gym_interface` package.
 
@@ -23,13 +19,10 @@ python setup.py develop
 ### Usage 
 
 This package provides environments for the following tasks
-- Navigation: The agent must move throughout it's environment without collisions.
+- Navigation: The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
 
-- Treasure Hunt: The agent must find 'treasures' placed throughout it's environment. 
-    
-    See the [example notebook](https://github.mit.edu/TESS/TESSE_gym_interface/blob/master/agent-training.ipynb) to get this up and running.
-   
-__TODO (?)__: add some gifs and an example notebook for the navigation task.
+- Treasure Hunt: The agent must find 'treasures' placed throughout it's environment. See the [example notebook](notebooks/treasure-hunt-training.ipynb) to get started.
+  
 
 
 ### Disclaimer
