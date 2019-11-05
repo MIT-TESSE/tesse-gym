@@ -2,18 +2,17 @@
 
 Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
 
-## Setup
+## Install dependencies
 
-Ensure the following dependencies are installed:
-- [Stable Baselines](https://stable-baselines.readthedocs.io/en/master/)
-- [tesse-interface](https://github.mit.edu/TESS/tesse-interface)
+### Stable Baselines
+See the [Stable Baselines installation instructions](https://stable-baselines.readthedocs.io/en/master/guide/install.html) for details on how to install this on your system.
 
-Then, clone the repo and setup the `tesse-gym` package.
+### tesse-interface
 
-```sh
-git clone https://github.mit.edu/TESS/tesse-gym.git
-cd tesse_gym
-python setup.py develop
+```python
+git clone git@github.mit.edu:TESS/tesse-interface.git
+cd tesse-interface/python
+python setup.py developo
 ```
 
 ## Getting started
