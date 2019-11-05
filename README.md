@@ -9,7 +9,7 @@ See the [Stable Baselines installation instructions](https://stable-baselines.re
 
 ### tesse-interface
 
-```python
+```sh
 git clone git@github.mit.edu:TESS/tesse-interface.git
 cd tesse-interface/python
 python setup.py developo
