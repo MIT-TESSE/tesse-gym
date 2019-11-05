@@ -135,9 +135,9 @@ class TesseGym(GymEnv):
         if self.done:
             logger.warn(self.DONE_WARNING)
 
-        self._apply_action(action)
+        self.apply_action(action)
         response = self.observe()
-        reward = self._compute_reward(response, action)
+        reward = self.compute_reward(response, action)
 
         return self.form_agent_observation(response), reward, self.done, {}
 
@@ -193,7 +193,7 @@ class TesseGym(GymEnv):
         """ Defines space of valid action. """
         raise NotImplementedError
 
-    def _apply_action(self, action):
+    def apply_action(self, action):
         """ Make agent take the specified action.
 
         Args:
@@ -201,7 +201,7 @@ class TesseGym(GymEnv):
         """
         raise NotImplementedError
 
-    def _compute_reward(self, observation, action):
+    def compute_reward(self, observation, action):
         """ Compute the reward based on the agent's observation and action.
 
         Args:

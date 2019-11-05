@@ -152,7 +152,7 @@ class TreasureHunt(TesseGym):
 
         return self.form_agent_observation(self.observe())
 
-    def _apply_action(self, action):
+    def apply_action(self, action):
         """ Make agent take the specified action.
 
         Args:
@@ -171,13 +171,7 @@ class TreasureHunt(TesseGym):
         elif action != 3:
             raise ValueError(f"Unexpected action {action}")
 
-    def _success_action(self):
-        """ Simple indicator that the agent has achieved the goal. """
-        for i in range(0, 360, 360 // 5):
-            self.env.send(self.TransformMessage(0, 0, 360 // 5))
-            time.sleep(0.1)
-
-    def _compute_reward(self, observation, action):
+    def compute_reward(self, observation, action):
         """ Compute reward consisting of
             - Reward if the agent has completed its task
               of being within `success_dist` of a target in its FOV
@@ -244,6 +238,12 @@ class TreasureHunt(TesseGym):
             self.done = True
 
         return reward
+
+    def _success_action(self):
+        """ Simple indicator that the agent has achieved the goal. """
+        for i in range(0, 360, 360 // 5):
+            self.env.send(self.TransformMessage(0, 0, 360 // 5))
+            time.sleep(0.1)
 
     def _collision(self, metadata):
         """ Check for collision with environment.
