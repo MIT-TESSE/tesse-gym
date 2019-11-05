@@ -16,16 +16,45 @@ cd tesse_gym
 python setup.py develop
 ```
 
-### Usage and Examples
+## Getting started
 
-This package provides environments for the following tasks
-- Navigation: The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
+This package provides environments for the following tasks:
 
-- Treasure Hunt: The agent must find 'treasures' placed throughout it's environment. See the [example notebook](notebooks/treasure-hunt-training.ipynb) to get started.
+### 1. Treasure Hunt
+
+#### Objective 
+Treasures (yellow cubes) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. 
+
+#### Observation space
+The agent acts on a first-person RGB image. We may add depth for the challange and provide a semantic segmentation model.
+
+See the [example notebook](notebooks/treasure-hunt-training.ipynb) to get started.
+
+### 2. Navigation
+
+The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
+
 
 Navigation | Treasure Hunt
 :----------:|:---------------:
 ![](docs/nav-1.gif) | ![](docs/hunt-1.gif)
+
+
+### New tasks
+At a minimum, a new task will inherit `tess_gym.TesseGym` and impliment the following:
+
+```python
+class CustomTask(TesseGym):
+    @property
+    def action_space(self):
+        pass
+    
+    def apply_action(self, action):
+        pass
+    
+    def compute_reward(self, observation, action):
+        pass
+```
   
 
 
