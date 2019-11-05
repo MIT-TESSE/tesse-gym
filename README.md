@@ -10,7 +10,7 @@ Provides a Python interface for reinforcement learning using the TESSE Unity env
 See the [Stable Baselines installation instructions](https://stable-baselines.readthedocs.io/en/master/guide/install.html) for details on how to install this on your system.
 
 #### tesse-interface
-__Note__ this requires branch `feature/objects`
+NOTE: this requires branch `feature/objects`
 
 ```sh
 git clone git@github.mit.edu:TESS/tesse-interface.git
