@@ -10,17 +10,19 @@ Provides a Python interface for reinforcement learning using the TESSE Unity env
 See the [Stable Baselines installation instructions](https://stable-baselines.readthedocs.io/en/master/guide/install.html) for details on how to install this on your system.
 
 #### tesse-interface
+__Note__ this requires branch `feature/objects`
 
 ```sh
 git clone git@github.mit.edu:TESS/tesse-interface.git
 cd tesse-interface/python
+git checkout feature/objects
 python setup.py develop
 ```
 
 ### Install tess-gym
 
 ```sh
-git clone https://llcad-github.llan.ll.mit.edu/tess-open-source-staging/tess-gym.git
+git clone git@github.mit.edu:TESS/tesse-gym.git
 cd tesse-gym
 python setup.py develop
 ```
