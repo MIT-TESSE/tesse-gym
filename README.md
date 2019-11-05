@@ -6,9 +6,9 @@ Provides a Python interface for reinforcement learning using the TESSE Unity env
 
 Ensure the following dependencies are installed:
 - [Stable Baselines](https://stable-baselines.readthedocs.io/en/master/)
-- [tesse-interface](https://github.mit.edu/TESS/TESSE_interface)
+- [tesse-interface](https://github.mit.edu/TESS/tesse-interface)
 
-Then, clone the repo and setup the `TESSE_gym_interface` package.
+Then, clone the repo and setup the `tesse-gym` package.
 
 ```sh
 git clone https://github.mit.edu/TESS/tesse-gym.git
