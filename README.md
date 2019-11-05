@@ -16,7 +16,7 @@ cd tesse_gym
 python setup.py develop
 ```
 
-### Usage 
+### Usage and Examples
 
 This package provides environments for the following tasks
 - Navigation: The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
