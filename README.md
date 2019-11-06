@@ -9,6 +9,13 @@ Provides a Python interface for reinforcement learning using the TESSE Unity env
 #### Stable Baselines
 See the [Stable Baselines installation instructions](https://stable-baselines.readthedocs.io/en/master/guide/install.html) for details on how to install this on your system.
 
+#### Tensorflow
+Stable Baselines [supports](https://stable-baselines.readthedocs.io/en/master/guide/install.html#prerequisites) v1.8.0 to v1.14.0. To install via pip:
+
+```sh
+pip install tensorflow-gpu==1.14
+```
+
 #### tesse-interface
 NOTE: this requires branch `feature/objects`
 
