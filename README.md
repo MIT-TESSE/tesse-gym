@@ -4,15 +4,33 @@ Provides a Python interface for reinforcement learning using the TESSE Unity env
 
 ## Setup
 
-Ensure the following dependencies are installed:
-- [Stable Baselines](https://stable-baselines.readthedocs.io/en/master/)
-- [tesse-interface](https://github.mit.edu/TESS/TESSE_interface)
+### Install dependencies
 
-Then, clone the repo and setup the `TESSE_gym_interface` package.
+#### Stable Baselines
+See the [Stable Baselines installation instructions](https://stable-baselines.readthedocs.io/en/master/guide/install.html) for details on how to install this on your system.
+
+#### Tensorflow
+Stable Baselines [supports](https://stable-baselines.readthedocs.io/en/master/guide/install.html#prerequisites) v1.8.0 to v1.14.0. To install via pip:
 
 ```sh
-git clone https://github.mit.edu/TESS/tesse-gym.git
-cd tesse_gym
+pip install tensorflow-gpu==1.14
+```
+
+#### tesse-interface
+NOTE: this requires branch `feature/objects`
+
+```sh
+git clone git@github.mit.edu:TESS/tesse-interface.git
+cd tesse-interface/python
+git checkout feature/objects
+python setup.py develop
+```
+
+### Install tess-gym
+
+```sh
+git clone git@github.mit.edu:TESS/tesse-gym.git
+cd tesse-gym
 python setup.py develop
 ```
 
