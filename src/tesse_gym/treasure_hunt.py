@@ -144,6 +144,7 @@ class TreasureHunt(TesseGym):
         self.n_found_targets = 0
 
         self.env.send(Respawn())
+
         self.env.request(RemoveObjectsRequest())
         for i in range(self.n_targets):
             self.env.request(
@@ -188,17 +189,13 @@ class TreasureHunt(TesseGym):
         """
         targets = self.env.request(ObjectsRequest())
         agent_data = observation
+        env_changed = False
 
         # compute agent's distance from targets
         agent_position = self._get_agent_position(agent_data.metadata)
         target_ids, target_position = self._get_target_id_and_positions(targets.metadata)
 
-        # Agent can fall out of scenes
-        if agent_position[1] < 1:
-            reward = -1  # discourage falling out of windows, etc
-            self.done = True
-            return reward
-
+        # TODO this logic need to be refactored
         reward = -0.01  # small time penalty
         if target_position.shape[0] > 0:
             # only compare (x, z) coordinates
@@ -213,22 +210,32 @@ class TreasureHunt(TesseGym):
             # if the agent is within `success_dist` of target, can see it,
             # and gives the `found` action, count as found
             if dists.min() < self.success_dist and target_in_fov.any() and action == 3:
-                # if in `MULTIPLE` mode, remove found targets
-                if self.hunt_mode.value == HuntMode.MULTIPLE.value:  # TODO: need to compare values?
-                    found_targets = target_ids[dists < self.success_dist]
-                    self.n_found_targets += len(found_targets)
-                    reward += self.target_found_reward * len(found_targets)
-                    self.env.request(RemoveObjectsRequest(ids=found_targets))
+                found_targets = target_ids[dists < self.success_dist]
+                found_target_positions = target_position[dists < self.success_dist]
+                agent_orientation = self._get_agent_rotation(agent_data.metadata)[-1]
+                angles_rel_agent = self.get_target_angle_rel_agent(agent_orientation,
+                                                                   found_target_positions,
+                                                                   agent_position)
+                found_targets = found_targets[np.where(angles_rel_agent < 45)]
 
-                    # if all targets have been found, restart the  episode
-                    if self.n_found_targets == self.n_targets:
-                        self._success_action()
+                if len(found_targets):
+                    # if in `MULTIPLE` mode, remove found targets
+                    if self.hunt_mode.value == HuntMode.MULTIPLE.value:  # TODO: need to compare values?
+                        self.n_found_targets += len(found_targets)
+                        reward += self.target_found_reward * len(found_targets)
+                        self.env.request(RemoveObjectsRequest(ids=found_targets))
+                        env_changed = True
+
+                        # if all targets have been found, restart the  episode
+                        if self.n_found_targets == self.n_targets:
+                            self._success_action()
+                            self.done = True
+
+                    # if in `SINGLE` mode, reset the episode
+                    elif self.hunt_mode == HuntMode.SINGLE:
+                        self._success_action()  # signal task was successful
+                        reward += self.target_found_reward
                         self.done = True
-                # if in `SINGLE` mode, reset the episode
-                elif self.hunt_mode == HuntMode.SINGLE:
-                    self._success_action()  # signal task was successful
-                    reward += self.target_found_reward
-                    self.done = True
 
         self.steps += 1
         if self.steps > self.max_steps:
@@ -237,7 +244,15 @@ class TreasureHunt(TesseGym):
         if self.restart_on_collision and self._collision(agent_data.metadata):
             self.done = True
 
-        return reward
+        return reward, env_changed
+
+    def get_target_angle_rel_agent(self, agent_orientation, found_target_positions, agent_position):
+        heading = np.array([[np.sin(agent_orientation), np.cos(agent_orientation)]])
+        target_relative_to_agent = found_target_positions - agent_position
+        target_orientation = np.arccos(np.dot(heading, target_relative_to_agent.T) /
+            (np.linalg.norm(target_relative_to_agent, axis=-1) * np.linalg.norm(heading)))
+        return np.rad2deg(target_orientation).reshape(-1)
+
 
     def _success_action(self):
         """ Simple indicator that the agent has achieved the goal. """
@@ -275,11 +290,13 @@ class TreasureHunt(TesseGym):
             .reshape(-1)
         )
 
-    def _get_agent_rotation(self, agent_metadata):
+    def _get_agent_rotation(self, agent_metadata, as_euler=True):
         """ Get the agent's rotation.
 
         Args:
             agent_metadata (str): Metadata string.
+            as_euler (bool): True to return zxy euler angles.
+                Otherwise, return quaternion.
 
         Returns:
             np.ndarray: shape (3,) containing (z, x, y)
@@ -290,7 +307,7 @@ class TreasureHunt(TesseGym):
         y = float(root.find('quaternion').attrib['y'])
         z = float(root.find('quaternion').attrib['z'])
         w = float(root.find('quaternion').attrib['w'])
-        return Rotation((x, y, z, w)).as_euler('zxy')
+        return Rotation((x, y, z, w)).as_euler('zxy') if as_euler else (x, y, z, w)
 
     def _get_target_id_and_positions(self, target_metadata):
         """ Get target positions from metadata.
