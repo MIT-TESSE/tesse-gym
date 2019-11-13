@@ -49,6 +49,7 @@ class HuntMode(Enum):
 
 class TreasureHunt(TesseGym):
     TARGET_COLOR = (245, 231, 50)
+    CAMERA_FOV = 45
 
     def __init__(
         self,
@@ -197,6 +198,12 @@ class TreasureHunt(TesseGym):
 
         # TODO this logic need to be refactored
         reward = -0.01  # small time penalty
+
+        # Reset if agent falls out of env
+        if agent_position[1] < 0:
+            self.done = True
+            return reward, False
+
         if target_position.shape[0] > 0:
             # only compare (x, z) coordinates
             agent_position = agent_position[np.newaxis, (0, 2)]
@@ -216,7 +223,7 @@ class TreasureHunt(TesseGym):
                 angles_rel_agent = self.get_target_angle_rel_agent(agent_orientation,
                                                                    found_target_positions,
                                                                    agent_position)
-                found_targets = found_targets[np.where(angles_rel_agent < 45)]
+                found_targets = found_targets[np.where(angles_rel_agent < self.CAMERA_FOV)]
 
                 if len(found_targets):
                     # if in `MULTIPLE` mode, remove found targets
