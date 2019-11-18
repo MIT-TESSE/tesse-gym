@@ -48,7 +48,7 @@ class HuntMode(Enum):
 
 
 class TreasureHunt(TesseGym):
-    TARGET_COLOR = (245, 231, 50)
+    TARGET_COLOR = (10, 138, 80)
     CAMERA_FOV = 45
 
     def __init__(
