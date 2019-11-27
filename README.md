@@ -30,7 +30,7 @@ cd ..
 git clone git@github.mit.edu:TESS/tesse-interface.git
 cd tesse-interface/python
 git checkout feature/objects
-python setup.py develop
+python setup.py install
 cd ../../tesse-gym
 ```
 
