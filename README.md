@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 3. Install tesse-interface
 
-This isn't available via PyPi or the Anaconda Package Repository. Note: the branch `feature/objects` is currently required.
+Note: the branch `feature/objects` is currently required.
 
 ```sh
 cd ..
