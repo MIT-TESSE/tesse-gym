@@ -81,7 +81,6 @@ class CustomTask(TesseGym):
         pass
 ```
   
-\
 
 ### Disclaimer
 
