@@ -2,6 +2,7 @@
 
 Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
 
+
 ## Installation
 
 ### From Source
@@ -80,7 +81,7 @@ class CustomTask(TesseGym):
         pass
 ```
   
-
+\
 
 ### Disclaimer
 
