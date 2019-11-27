@@ -6,7 +6,7 @@ Provides a Python interface for reinforcement learning using the TESSE Unity env
 
 ### From Source
 Using [Anaconda](https://www.anaconda.com/distribution/#download-section) or [miniconda](https://docs.conda.io/en/latest/miniconda.html) is highly recommended. Python 3.6 is required.
-z
+
 1. Clone this repository
 ```sh
 git clone git@github.mit.edu:TESS/tesse-gym.git
