@@ -24,7 +24,8 @@ import subprocess
 import numpy as np
 from gym import Env as GymEnv, logger, spaces
 from tesse.env import Env
-from tesse.msgs import Camera, Compression, Channels, DataRequest, Respawn, SetFrameRate, SceneRequest, SetHoverHeight
+from tesse.msgs import *
+from .continuous_control import ContinuousController
 
 import time
 
@@ -50,7 +51,8 @@ class TesseGym(GymEnv):
         scene_id: int = None,
         max_steps: int = 40,
         step_rate: int = -1,
-        init_hook: callable = None
+        init_hook: callable = None,
+        continuous_control: bool = False
     ):
         """
         Args:
@@ -66,6 +68,8 @@ class TesseGym(GymEnv):
                 `step_rate` FPS.
             init_hook (callable): Method to adjust any experiment specific parameters
                 upon startup (e.g. camera parameters).
+            continuous_control (bool): True to use a continuous controller to move the
+                agent. False to use discrete transforms.
         """
         atexit.register(self.close)
 
@@ -102,18 +106,41 @@ class TesseGym(GymEnv):
             self.env.request(SetFrameRate(step_rate))
             self.step_mode = True
 
+        self.TransformMessage = StepWithTransform if self.step_mode else Transform
+
         self.metadata = {"render.modes": ["rgb_array"]}
         self.reward_range = (-float("inf"), float("inf"))
 
         self.max_steps = max_steps
         self.done = False
         self.steps = 0
+        self.env.request(SetHoverHeight(self.hover_height))
+
+        self.continuous_control = continuous_control
+        if self.continuous_control and step_rate < 1:
+            raise ValueError(f"A step rate must be given to run the continuous controller")
+
+        if self.continuous_control:
+            self.continuous_controller = ContinuousController(self.env, framerate=step_rate)
 
         #  any experiment specific settings go here
         if init_hook:
             init_hook(self)
 
-        self.env.request(SetHoverHeight(self.hover_height))
+    def transform(self, x, z, y):
+        """ Apply desired transform to agent. If in continuous mode, the
+        agent is moved via force commands. Otherwise, a discrete transform
+        is applied.
+
+        Args:
+            x (float): desired x translation.
+            z (float): desired z translation.
+            y (float): Desired rotation (in degrees).
+        """
+        if self.continuous_control:
+            self.continuous_controller.transform(x, z, np.deg2rad(y))
+        else:
+            self.env.send(StepWithTransform(x, z, y))
 
     @property
     def observation_space(self):

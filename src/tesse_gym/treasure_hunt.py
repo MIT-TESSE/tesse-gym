@@ -27,7 +27,6 @@ from gym import spaces
 from scipy.spatial.transform import Rotation
 from enum import Enum
 from tesse.msgs import (
-    Transform,
     Camera,
     DataRequest,
     Compression,
@@ -38,7 +37,6 @@ from tesse.msgs import (
     ObjectType,
     ObjectSpawnMethod,
     RemoveObjectsRequest,
-    StepWithTransform,
 )
 
 
@@ -67,7 +65,8 @@ class TreasureHunt(TesseGym):
         restart_on_collision: bool = False,
         init_hook: callable = None,
         hunt_mode: HuntMode = HuntMode.MULTIPLE,
-        target_found_reward: int = 1
+        target_found_reward: int = 1,
+        continuous_control: bool = False
     ):
         """ Initialize the TESSE treasure hunt environment.
 
@@ -101,15 +100,13 @@ class TreasureHunt(TesseGym):
             scene_id,
             max_steps,
             step_rate,
-            init_hook=init_hook
+            init_hook=init_hook,
+            continuous_control=continuous_control
         )
         self.n_targets = n_targets
         self.success_dist = success_dist
         self.max_steps = max_steps
         self.restart_on_collision = restart_on_collision
-
-        self.TransformMessage = StepWithTransform if self.step_mode else Transform
-
         self.target_found_reward = target_found_reward
         self.hunt_mode = hunt_mode
         self.n_found_targets = 0
@@ -162,17 +159,26 @@ class TreasureHunt(TesseGym):
             action (action_space): Make agent take `action`.
         """
         if action == 0:
-            # move forward, a bit of a hack to accommodate thin colliders
-            for _ in range(4):
-                self.env.send(self.TransformMessage(0, 0.1, 0))
-                time.sleep(0.02)  # so messages don't get dropped
-            self.env.send(self.TransformMessage(0, 0.1, 0))  # don't need a final sleep call
+            self.transform(0, 0.5, 0)
         elif action == 1:
-            self.env.send(self.TransformMessage(0, 0, 8))  # turn right
+            self.transform(0, 0, 8)
         elif action == 2:
-            self.env.send(self.TransformMessage(0, 0, -8))  # turn left
+            self.transform(0, 0, -8)
         elif action != 3:
             raise ValueError(f"Unexpected action {action}")
+
+    def forward_transform(self, x, z, y):
+        """ Move forward in 5 small increments. This a bit of a
+        hack to accommodate thin colliders, the small steps ensure
+        the agent doesn't pass through them. """
+        x /= 5.0
+        z /= 5.0
+        y /= 5.0
+
+        for _ in range(4):
+            self.transform(x, z, y)
+            time.sleep(0.02)  # so messages don't get dropped
+        self.transform(x, z, y)
 
     def compute_reward(self, observation, action):
         """ Compute reward consisting of
