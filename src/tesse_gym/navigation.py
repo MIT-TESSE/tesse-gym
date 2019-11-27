@@ -31,7 +31,7 @@ class Navigation(TesseGym):
         """ Agent can turn left, right, or move forward. """
         return spaces.Discrete(3)
 
-    def _apply_action(self, action):
+    def apply_action(self, action):
         """ Turn left, right, or move forward.
 
         Args:
@@ -46,7 +46,7 @@ class Navigation(TesseGym):
         else:
             pass
 
-    def _compute_reward(self, observation, action):
+    def compute_reward(self, observation, action):
         """ Reward agent for moving forward. Penalize agent for
         colliding with the environment.
 

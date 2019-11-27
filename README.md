@@ -2,31 +2,86 @@
 
 Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
 
-## Install dependencies
 
-### Stable Baselines
-See the [Stable Baselines installation instructions](https://stable-baselines.readthedocs.io/en/master/guide/install.html) for details on how to install this on your system.
+## Installation
 
-### tesse-interface
+### From Source
+Using [Anaconda](https://www.anaconda.com/distribution/#download-section) or [miniconda](https://docs.conda.io/en/latest/miniconda.html) is highly recommended. Python 3.6 is required.
 
-```python
-git clone git@github.mit.edu:TESS/tesse-interface.git
-cd tesse-interface/python
-python setup.py developo
+1. Clone this repository
+```sh
+git clone git@github.mit.edu:TESS/tesse-gym.git
+cd tesse-gym
 ```
 
-### Usage and Examples
+2. Install Dependencies
 
-This package provides environments for the following tasks
-- Navigation: The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
+```sh
+conda create -n tess_gym python=3.6
+conda activate tess_gym
+pip install -r requirements.txt
+```
 
-- Treasure Hunt: The agent must find 'treasures' placed throughout it's environment. See the [example notebook](notebooks/treasure-hunt-training.ipynb) to get started.
+3. Install tesse-interface
+
+This isn't available via PyPi or the Anaconda Package Repository. Note: the branch `feature/objects` is currently required.
+
+```sh
+cd ..
+git clone git@github.mit.edu:TESS/tesse-interface.git
+cd tesse-interface/python
+git checkout feature/objects
+python setup.py install
+cd ../../tesse-gym
+```
+
+3. Install tesse-gym
+
+```sh
+python setup.py install
+```
+
+## Getting started
+
+This package provides environments for the following tasks:
+
+### 1. Treasure Hunt
+
+#### Objective 
+Treasures (yellow cubes) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. 
+
+#### Observation space
+The agent acts on a first-person RGB image. We may add depth for the challange and provide a semantic segmentation model.
+
+See the [example notebook](notebooks/treasure-hunt-training.ipynb) to get started.
+
+### 2. Navigation
+
+The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
+
 
 Navigation | Treasure Hunt
 :----------:|:---------------:
 ![](docs/nav-1.gif) | ![](docs/hunt-1.gif)
-  
 
+
+### New tasks
+At a minimum, a new task will inherit `tess_gym.TesseGym` and impliment the following:
+
+```python
+class CustomTask(TesseGym):
+    @property
+    def action_space(self):
+        pass
+    
+    def apply_action(self, action):
+        pass
+    
+    def compute_reward(self, observation, action):
+        pass
+```
+  
+\
 
 ### Disclaimer
 

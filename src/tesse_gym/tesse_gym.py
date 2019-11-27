@@ -24,7 +24,7 @@ import subprocess
 import numpy as np
 from gym import Env as GymEnv, logger, spaces
 from tesse.env import Env
-from tesse.msgs import Camera, Compression, Channels, DataRequest, Respawn, SetFrameRate, SceneRequest
+from tesse.msgs import Camera, Compression, Channels, DataRequest, Respawn, SetFrameRate, SceneRequest, SetHoverHeight
 
 import time
 
@@ -38,6 +38,7 @@ class TesseGym(GymEnv):
         "steps are undefined behavior. "
     )
     shape = (240, 320, 3)
+    hover_height = 0.5
 
     def __init__(
         self,
@@ -112,6 +113,8 @@ class TesseGym(GymEnv):
         if init_hook:
             init_hook(self)
 
+        self.env.request(SetHoverHeight(self.hover_height))
+
     @property
     def observation_space(self):
         """ Space observed by the agent. """
@@ -135,9 +138,12 @@ class TesseGym(GymEnv):
         if self.done:
             logger.warn(self.DONE_WARNING)
 
-        self._apply_action(action)
+        self.apply_action(action)
         response = self.observe()
-        reward = self._compute_reward(response, action)
+        reward, env_changed = self.compute_reward(response, action)
+
+        if env_changed and not self.done:
+            response = self.observe()
 
         return self.form_agent_observation(response), reward, self.done, {}
 
@@ -193,7 +199,7 @@ class TesseGym(GymEnv):
         """ Defines space of valid action. """
         raise NotImplementedError
 
-    def _apply_action(self, action):
+    def apply_action(self, action):
         """ Make agent take the specified action.
 
         Args:
@@ -201,7 +207,7 @@ class TesseGym(GymEnv):
         """
         raise NotImplementedError
 
-    def _compute_reward(self, observation, action):
+    def compute_reward(self, observation, action):
         """ Compute the reward based on the agent's observation and action.
 
         Args:
