@@ -1,0 +1,5 @@
+numpy
+scipy
+tensorflow-gpu>=1.8,<=1.14
+stable_baselines
+jupyter
