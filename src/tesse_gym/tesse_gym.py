@@ -22,6 +22,7 @@
 import atexit
 import subprocess
 import numpy as np
+from collections import namedtuple
 from gym import Env as GymEnv, logger, spaces
 from tesse.env import Env
 from tesse.msgs import *
@@ -30,7 +31,24 @@ from .continuous_control import ContinuousController
 import time
 
 
+NetworkConfig = namedtuple("NetworkConfig",
+                           ['simulation_ip', 'own_ip', 'position_port', 'metadata_port', 'image_port', 'step_port'],
+                           defaults=('localhost', 'localhost', 9000, 9001, 9002, 9005))
+
+
+def default_network_config(simulation_ip='localhost', own_ip='localhost', base_port=9000, worker_id=0, n_ports=6):
+    return NetworkConfig(simulation_ip=simulation_ip,
+                         own_ip=own_ip,
+                         position_port=base_port + worker_id * n_ports,
+                         metadata_port=base_port + worker_id * n_ports + 1,
+                         image_port=base_port + worker_id * n_ports + 2,
+                         step_port=base_port + worker_id * n_ports + 5,
+                         )
+
+
 class TesseGym(GymEnv):
+    metadata = {"render.modes": ["rgb_array"]}
+    reward_range = (-float("inf"), float("inf"))
     N_PORTS = 6
     DONE_WARNING = (
         "You are calling 'step()' even though this environment "
@@ -44,24 +62,18 @@ class TesseGym(GymEnv):
     def __init__(
         self,
         environment_file: str,
-        simulation_ip: str,
-        own_ip: str,
-        worker_id: int = 0,
-        base_port: int = 9000,
+        network_config: NetworkConfig = NetworkConfig(),
         scene_id: int = None,
         max_steps: int = 40,
         step_rate: int = -1,
         init_hook: callable = None,
-        continuous_control: bool = False
+        continuous_control: bool = False,
+        launch_tesse: bool = True
     ):
         """
         Args:
             environment_file (str): Path to TESS executable.
-            simulation_ip (str): TESS IP address.
-            own_ip (int): Local IP address.
-            worker_id (int): Simulation ID (for running as subprocess).
-                Defaults to 0.
-            base_port (int): Interface Base port.
+            network_config (NetworkConfig): Network configuration parameters.
             scene_id (int): Scene to use.
             max_steps (int): Max steps per episode.
             step_rate (int): If specified, game time is fixed to
@@ -73,34 +85,38 @@ class TesseGym(GymEnv):
         """
         atexit.register(self.close)
 
-        # Launch Unity
-        self.proc = subprocess.Popen(
-            [
-                environment_file,
-                "--listen_port",
-                str(int(base_port + worker_id * self.N_PORTS)),
-                "--send_port",
-                str(int(base_port + worker_id * self.N_PORTS)),
-                "--set_resolution",
-                str(self.shape[1]),
-                str(self.shape[0]),
-            ]
-        )
+        # launch Unity if in training mode
+        # otherwise, assume Unity is already running (e.g. for Kimera)
+        if launch_tesse:
+            self.proc = subprocess.Popen(
+                [
+                    environment_file,
+                    "--listen_port",
+                    str(int(network_config.position_port)),
+                    "--send_port",
+                    str(int(network_config.position_port)),
+                    "--set_resolution",
+                    str(self.shape[1]),
+                    str(self.shape[0]),
+                ]
+            )
+        self.launch_tesse = launch_tesse
 
         # setup environment
         self.env = Env(
-            simulation_ip=simulation_ip,
-            own_ip=own_ip,
-            position_port=base_port + worker_id * self.N_PORTS,
-            metadata_port=base_port + worker_id * self.N_PORTS + 1,
-            image_port=base_port + worker_id * self.N_PORTS + 2,
-            step_port=base_port + worker_id * self.N_PORTS + 5,
+            simulation_ip=network_config.simulation_ip, #simulation_ip,
+            own_ip=network_config.own_ip, # own_ip,
+            position_port=network_config.position_port, # base_port + worker_id * self.N_PORTS,
+            metadata_port=network_config.metadata_port, # 9007, #base_port + worker_id * self.N_PORTS + 1,
+            image_port=network_config.image_port, # 9008, #base_port + worker_id * self.N_PORTS + 2,
+            step_port=network_config.step_port, # base_port + worker_id * self.N_PORTS + 5,
         )
 
         if scene_id:
             time.sleep(10)  # wait for sim to initialize
             self.env.send(SceneRequest(scene_id))
 
+        # if specified, set step mode parameters
         self.step_mode = False
         if step_rate > 0:
             self.env.request(SetFrameRate(step_rate))
@@ -108,14 +124,7 @@ class TesseGym(GymEnv):
 
         self.TransformMessage = StepWithTransform if self.step_mode else Transform
 
-        self.metadata = {"render.modes": ["rgb_array"]}
-        self.reward_range = (-float("inf"), float("inf"))
-
-        self.max_steps = max_steps
-        self.done = False
-        self.steps = 0
-        self.env.request(SetHoverHeight(self.hover_height))
-
+        # if specified, set continuous control
         self.continuous_control = continuous_control
         if self.continuous_control and step_rate < 1:
             raise ValueError(f"A step rate must be given to run the continuous controller")
@@ -123,9 +132,20 @@ class TesseGym(GymEnv):
         if self.continuous_control:
             self.continuous_controller = ContinuousController(self.env, framerate=step_rate)
 
+        self.max_steps = max_steps
+        self.done = False
+        self.steps = 0
+        self.env.request(SetHoverHeight(self.hover_height))
+
         #  any experiment specific settings go here
         if init_hook:
             init_hook(self)
+
+    def advance_game_n_steps(self, n_steps):
+        """ Advance game time by sending step forces of 0 to TESSE. """
+        for i in range(n_steps):
+            #  TODO look into making
+            self.env.send(StepWithForce(0, 0, 0))  # move game time to update observation
 
     def transform(self, x, z, y):
         """ Apply desired transform to agent. If in continuous mode, the
@@ -140,7 +160,7 @@ class TesseGym(GymEnv):
         if self.continuous_control:
             self.continuous_controller.transform(x, z, np.deg2rad(y))
         else:
-            self.env.send(StepWithTransform(x, z, y))
+            self.env.send(self.TransformMessage(x, z, y))
 
     @property
     def observation_space(self):
@@ -202,8 +222,9 @@ class TesseGym(GymEnv):
         return self.observe().images[0]
 
     def close(self):
-        """ Kill simulation. """
-        self.proc.kill()
+        """ Kill simulation if running. """
+        if self.launch_tesse:
+            self.proc.kill()
 
     def form_agent_observation(self, scene_observation):
         """ Form agent's observation from a part

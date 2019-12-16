@@ -19,7 +19,7 @@
 # this work.
 ###################################################################################################
 
-from .tesse_gym import TesseGym
+from .tesse_gym import TesseGym, NetworkConfig
 import defusedxml.ElementTree as ET
 import numpy as np
 import time
@@ -37,6 +37,7 @@ from tesse.msgs import (
     ObjectType,
     ObjectSpawnMethod,
     RemoveObjectsRequest,
+    StepWithForce
 )
 
 
@@ -46,17 +47,14 @@ class HuntMode(Enum):
 
 
 class TreasureHunt(TesseGym):
-    TARGET_COLOR = (245, 231, 50)
-    # TARGET_COLOR = (10, 138, 80)  # for tesse v5.1 and above
+    # TARGET_COLOR = (245, 231, 50)
+    TARGET_COLOR = (10, 138, 80)  # for tesse v5.1 and above
     CAMERA_FOV = 45
 
     def __init__(
         self,
         environment_file: str,
-        simulation_ip: str,
-        own_ip: str,
-        worker_id: int = 0,
-        base_port: int = 9000,
+        network_config: NetworkConfig = NetworkConfig(),
         scene_id: int = None,
         max_steps: int = 100,
         step_rate: int = -1,
@@ -66,7 +64,8 @@ class TreasureHunt(TesseGym):
         init_hook: callable = None,
         hunt_mode: HuntMode = HuntMode.MULTIPLE,
         target_found_reward: int = 1,
-        continuous_control: bool = False
+        continuous_control: bool = False,
+        launch_tesse: bool = False,
     ):
         """ Initialize the TESSE treasure hunt environment.
 
@@ -93,15 +92,13 @@ class TreasureHunt(TesseGym):
         """
         super().__init__(
             environment_file,
-            simulation_ip,
-            own_ip,
-            worker_id,
-            base_port,
+            network_config,
             scene_id,
             max_steps,
             step_rate,
             init_hook=init_hook,
-            continuous_control=continuous_control
+            continuous_control=continuous_control,
+            launch_tesse=launch_tesse
         )
         self.n_targets = n_targets
         self.success_dist = success_dist
@@ -149,6 +146,9 @@ class TreasureHunt(TesseGym):
             self.env.request(
                 SpawnObjectRequest(ObjectType.CUBE, ObjectSpawnMethod.RANDOM)
             )
+
+        if self.step_mode:
+            self.advance_game_n_steps(20)
 
         return self.form_agent_observation(self.observe())
 
