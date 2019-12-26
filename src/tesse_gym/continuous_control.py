@@ -25,12 +25,30 @@ from tesse.msgs import *
 
 
 def get_attributes(root, element, *attributes):
+    """ Get XML element attributes.
+
+    Args:
+        root (Element): XML root.
+        element (str): Attribute element.
+        *attributes (str): Attributes to fetch.
+
+    Returns:
+        List[str]: Requested attributes.
+    """
     element = root.find(element)
     return [float(element.attrib[attrib]) for attrib in attributes]
 
 
 def parse_metadata(metadata):
-    """ Get position, orientation, velocity, and acceleration from metadata"""
+    """ Get position, orientation, velocity, and acceleration from metadata
+
+    Args:
+        metadata (str): TESSE metadata.
+
+    Returns:
+        Dict[str]: Dictionary containing position, orientation, velocity, and
+            acceleration values.
+    """
     data = {}
     root = ET.fromstring(metadata)
 
@@ -80,11 +98,24 @@ class ContinuousController:
         threshold=np.array([0.05, 0.05, 0.01]),
         framerate=5,
         max_steps=100,
-        pos_error_gain=4,
-        pos_error_rate_gain=2,
+        pos_error_gain=4.0,
+        pos_error_rate_gain=2.0,
         yaw_error_gain=0.1,
         yaw_error_rate_gain=0.05,
     ):
+        """ Initialize PD controller.
+
+        Args:
+            env (Env): Tesse Env object.
+            threshold (np.ndarray): (x, z, rotation) error threshold to
+                be considered at the goal point.
+            framerate (int): TESSE step mode framerate.
+            max_steps (int): Maximum steps controller will take to reach goal.
+            pos_error_gain (float): Position Proportional gain.
+            pos_error_rate_gain (float): Position derivative gain.
+            yaw_error_gain (float): Yaw proportional gain.
+            yaw_error_rate_gain (float): Yaw derivative gain.
+        """
         self.env = env
         self.threshold = threshold
         self.env.send(SetFrameRate(framerate))  # Put into step mode
@@ -97,8 +128,14 @@ class ContinuousController:
         self.goal = []
         self.set_goal(self.get_data())  # Set goal to current location
 
-    def transform(self, translate_x=0, translate_z=0, rotate_y=0):
-        """ Apply desired transform via force commands. """
+    def transform(self, translate_x=0.0, translate_z=0.0, rotate_y=0.0):
+        """ Apply desired transform via force commands.
+
+        Args:
+            translate_x (float): Desired x position relative to agent.
+            translate_z (float): Desired z position relative to agent.
+            rotate_y (float): Desired rotation (in radians) relative to agent.
+         """
         data = self.get_data()
         self.set_goal(data, translate_x, translate_z, rotate_y)
 
@@ -119,10 +156,17 @@ class ContinuousController:
         response = self.env.request(MetadataRequest())
         return parse_metadata(response.metadata)
 
-    def set_goal(self, data, translate_x=0, translate_z=0, rotate_y=0):
+    def set_goal(self, data, translate_x=0.0, translate_z=0.0, rotate_y=0.0):
         """ Sets the goal for the controller via creating a waypoint based
-        on the desired transform. """
+        on the desired transform.
 
+        Args:
+            data (Dict[str]): Agent's position, orientation, velocity,
+                and acceleration.
+            translate_x (float): Desired x position relative to agent.
+            translate_z (float): Desired z position relative to agent.
+            rotate_y (float): Desired rotation (in radians) relative to agent.
+        """
         # Update goal point
         yaw = data["rotation"][2]
         x = (
@@ -138,7 +182,12 @@ class ContinuousController:
         self.goal = np.array([x, z, yaw + rotate_y])
 
     def at_goal(self, data):
-        """ Returns True if at the goal location within the threshold """
+        """ Returns True if at the goal location within the threshold.
+
+        Args:
+            data (Dict[str]): Agent's position, orientation, velocity,
+                and acceleration.
+        """
         current = np.array(
             [data["position"]["x"], data["position"]["z"], data["rotation"][2]]
         )
@@ -148,8 +197,12 @@ class ContinuousController:
         return np.all(np.abs(error) < self.threshold)
 
     def control(self, data):
-        """ Applies PD-control to move to the goal point """
+        """ Applies PD-control to move to the goal point.
 
+        Args:
+            data (Dict[str]): Agent's position, orientation, velocity,
+                and acceleration.
+        """
         # First, calculate position errors and a force in x- and z- to apply
         x_error = self.goal[0] - data["position"]["x"]
         z_error = self.goal[1] - data["position"]["z"]
