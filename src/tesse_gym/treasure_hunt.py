@@ -37,7 +37,6 @@ from tesse.msgs import (
     ObjectType,
     ObjectSpawnMethod,
     RemoveObjectsRequest,
-    StepWithForce
 )
 
 
