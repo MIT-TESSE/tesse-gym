@@ -19,7 +19,7 @@
 # this work.
 ###################################################################################################
 
-from .tesse_gym import TesseGym
+from .tesse_gym import TesseGym, NetworkConfig
 import defusedxml.ElementTree as ET
 import numpy as np
 import time
@@ -27,7 +27,6 @@ from gym import spaces
 from scipy.spatial.transform import Rotation
 from enum import Enum
 from tesse.msgs import (
-    Transform,
     Camera,
     DataRequest,
     Compression,
@@ -38,7 +37,6 @@ from tesse.msgs import (
     ObjectType,
     ObjectSpawnMethod,
     RemoveObjectsRequest,
-    StepWithTransform,
 )
 
 
@@ -48,17 +46,14 @@ class HuntMode(Enum):
 
 
 class TreasureHunt(TesseGym):
-    TARGET_COLOR = (245, 231, 50)
-    # TARGET_COLOR = (10, 138, 80)  # for tesse v5.1 and above
+    # TARGET_COLOR = (245, 231, 50)
+    TARGET_COLOR = (10, 138, 80)  # for tesse v5.1 and above
     CAMERA_FOV = 45
 
     def __init__(
         self,
         environment_file: str,
-        simulation_ip: str,
-        own_ip: str,
-        worker_id: int = 0,
-        base_port: int = 9000,
+        network_config: NetworkConfig = NetworkConfig(),
         scene_id: int = None,
         max_steps: int = 100,
         step_rate: int = -1,
@@ -67,7 +62,9 @@ class TreasureHunt(TesseGym):
         restart_on_collision: bool = False,
         init_hook: callable = None,
         hunt_mode: HuntMode = HuntMode.MULTIPLE,
-        target_found_reward: int = 1
+        target_found_reward: int = 1,
+        continuous_control: bool = False,
+        launch_tesse: bool = False,
     ):
         """ Initialize the TESSE treasure hunt environment.
 
@@ -91,25 +88,25 @@ class TreasureHunt(TesseGym):
                 field of view.
             init_hook (callable): Method to adjust any experiment specific parameters
                 upon startup (e.g. camera parameters).
+            continuous_control (bool): True to use a continuous controller to move the
+                agent. False to use discrete transforms.
+            launch_tesse (bool): True to start tesse instance. Otherwise, assume another
+                instance is running.
         """
         super().__init__(
             environment_file,
-            simulation_ip,
-            own_ip,
-            worker_id,
-            base_port,
+            network_config,
             scene_id,
             max_steps,
             step_rate,
-            init_hook=init_hook
+            init_hook=init_hook,
+            continuous_control=continuous_control,
+            launch_tesse=launch_tesse
         )
         self.n_targets = n_targets
         self.success_dist = success_dist
         self.max_steps = max_steps
         self.restart_on_collision = restart_on_collision
-
-        self.TransformMessage = StepWithTransform if self.step_mode else Transform
-
         self.target_found_reward = target_found_reward
         self.hunt_mode = hunt_mode
         self.n_found_targets = 0
@@ -146,12 +143,15 @@ class TreasureHunt(TesseGym):
         self.n_found_targets = 0
 
         self.env.send(Respawn())
-
         self.env.request(RemoveObjectsRequest())
+
         for i in range(self.n_targets):
             self.env.request(
                 SpawnObjectRequest(ObjectType.CUBE, ObjectSpawnMethod.RANDOM)
             )
+
+        if self.step_mode:
+            self.advance_game_time(1)  # respawn doesn't advance game time
 
         return self.form_agent_observation(self.observe())
 
@@ -162,17 +162,26 @@ class TreasureHunt(TesseGym):
             action (action_space): Make agent take `action`.
         """
         if action == 0:
-            # move forward, a bit of a hack to accommodate thin colliders
-            for _ in range(4):
-                self.env.send(self.TransformMessage(0, 0.1, 0))
-                time.sleep(0.02)  # so messages don't get dropped
-            self.env.send(self.TransformMessage(0, 0.1, 0))  # don't need a final sleep call
+            self.transform(0, 0.5, 0)
         elif action == 1:
-            self.env.send(self.TransformMessage(0, 0, 8))  # turn right
+            self.transform(0, 0, 8)
         elif action == 2:
-            self.env.send(self.TransformMessage(0, 0, -8))  # turn left
+            self.transform(0, 0, -8)
         elif action != 3:
             raise ValueError(f"Unexpected action {action}")
+
+    def forward_transform(self, x, z, y):
+        """ Move forward in 5 small increments. This a bit of a
+        hack to accommodate thin colliders, the small steps ensure
+        the agent doesn't pass through them. """
+        x /= 5.0
+        z /= 5.0
+        y /= 5.0
+
+        for _ in range(4):
+            self.transform(x, z, y)
+            time.sleep(0.02)  # so messages don't get dropped
+        self.transform(x, z, y)
 
     def compute_reward(self, observation, action):
         """ Compute reward consisting of
