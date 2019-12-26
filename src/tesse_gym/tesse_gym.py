@@ -36,7 +36,20 @@ NetworkConfig = namedtuple("NetworkConfig",
                            defaults=('localhost', 'localhost', 9000, 9001, 9002, 9005))
 
 
-def default_network_config(simulation_ip='localhost', own_ip='localhost', base_port=9000, worker_id=0, n_ports=6):
+def get_network_config(simulation_ip='localhost', own_ip='localhost', base_port=9000, worker_id=0, n_ports=6):
+    """ Get a TESSE network configuration instance.
+
+    Args:
+        simulation_ip (str): TESSE IP address.
+        own_ip (str): Local IP address.
+        base_port (int): Starting connection port. It is assumed the rest of the ports
+            follow sequentially.
+        worker_id (int): Worker ID of this Gym instance. Ports are staggered by ID.
+        n_ports (int): Number of ports allocated to each TESSE instance.
+
+    Returns:
+        NetworkConfig: NetworkConfig object.
+    """
     return NetworkConfig(simulation_ip=simulation_ip,
                          own_ip=own_ip,
                          position_port=base_port + worker_id * n_ports,
@@ -82,11 +95,14 @@ class TesseGym(GymEnv):
                 upon startup (e.g. camera parameters).
             continuous_control (bool): True to use a continuous controller to move the
                 agent. False to use discrete transforms.
+            launch_tesse (bool): True to start tesse instance. Otherwise, assume another
+                instance is running.
         """
         atexit.register(self.close)
 
         # launch Unity if in training mode
         # otherwise, assume Unity is already running (e.g. for Kimera)
+        self.launch_tesse = launch_tesse
         if launch_tesse:
             self.proc = subprocess.Popen(
                 [
@@ -100,7 +116,6 @@ class TesseGym(GymEnv):
                     str(self.shape[0]),
                 ]
             )
-        self.launch_tesse = launch_tesse
 
         # setup environment
         self.env = Env(
@@ -136,15 +151,15 @@ class TesseGym(GymEnv):
         self.done = False
         self.steps = 0
         self.env.request(SetHoverHeight(self.hover_height))
+        self.env.send((ColliderRequest(1)))
 
         #  any experiment specific settings go here
         if init_hook:
             init_hook(self)
 
-    def advance_game_n_steps(self, n_steps):
-        """ Advance game time by sending step forces of 0 to TESSE. """
+    def advance_game_time(self, n_steps):
+        """ Advance game time in step mode by sending step forces of 0 to TESSE. """
         for i in range(n_steps):
-            #  TODO look into making
             self.env.send(StepWithForce(0, 0, 0))  # move game time to update observation
 
     def transform(self, x, z, y):

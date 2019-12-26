@@ -89,6 +89,10 @@ class TreasureHunt(TesseGym):
                 field of view.
             init_hook (callable): Method to adjust any experiment specific parameters
                 upon startup (e.g. camera parameters).
+            continuous_control (bool): True to use a continuous controller to move the
+                agent. False to use discrete transforms.
+            launch_tesse (bool): True to start tesse instance. Otherwise, assume another
+                instance is running.
         """
         super().__init__(
             environment_file,
@@ -140,15 +144,15 @@ class TreasureHunt(TesseGym):
         self.n_found_targets = 0
 
         self.env.send(Respawn())
-
         self.env.request(RemoveObjectsRequest())
+
         for i in range(self.n_targets):
             self.env.request(
                 SpawnObjectRequest(ObjectType.CUBE, ObjectSpawnMethod.RANDOM)
             )
 
         if self.step_mode:
-            self.advance_game_n_steps(20)
+            self.advance_game_time(1)  # respawn doesn't advance game time
 
         return self.form_agent_observation(self.observe())
 
