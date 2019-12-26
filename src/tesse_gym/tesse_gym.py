@@ -23,6 +23,8 @@ import atexit
 import subprocess
 import numpy as np
 from collections import namedtuple
+import defusedxml.ElementTree as ET
+from scipy.spatial.transform import Rotation
 from gym import Env as GymEnv, logger, spaces
 from tesse.env import Env
 from tesse.msgs import *
@@ -77,7 +79,7 @@ class TesseGym(GymEnv):
         environment_file: str,
         network_config: NetworkConfig = NetworkConfig(),
         scene_id: int = None,
-        max_steps: int = 40,
+        max_steps: int = 300,
         step_rate: int = -1,
         init_hook: callable = None,
         continuous_control: bool = False,
@@ -157,6 +159,10 @@ class TesseGym(GymEnv):
         if init_hook:
             init_hook(self)
 
+        # track relative pose throughout episode
+        self.initial_pose = np.zeros((3,))  # (x, z, yaw) pose from starting point
+        self.relative_pose = np.zeros((3,))
+
     def advance_game_time(self, n_steps):
         """ Advance game time in step mode by sending step forces of 0 to TESSE. """
         for i in range(n_steps):
@@ -223,6 +229,7 @@ class TesseGym(GymEnv):
         self.done = False
         self.steps = 0
         self.env.send(Respawn())
+        self.init_agent_pose()
         return self.form_agent_observation(self.observe())
 
     def render(self, mode="rgb_array"):
@@ -255,6 +262,7 @@ class TesseGym(GymEnv):
         Returns:
             np.ndarray: Observation given to the agent.
         """
+        self.update_pose(scene_observation.metadata)
         return scene_observation.images[0]
 
     @property
@@ -282,3 +290,77 @@ class TesseGym(GymEnv):
             float: Computed reward.
         """
         raise NotImplementedError
+
+    def init_agent_pose(self):
+        """ Initialize agent's starting pose """
+        metadata = self.env.request(MetadataRequest()).metadata
+        position = self._get_agent_position(metadata)
+        rotation = self._get_agent_rotation(metadata)
+
+        self.initial_pose = np.array([position[0], position[2], rotation[2]])
+        self.relative_pose = np.zeros((3,))
+
+    def update_pose(self, metadata):
+        position = self._get_agent_position(metadata)
+        rotation = self._get_agent_rotation(metadata)
+        x = position[0]
+        z = position[2]
+        yaw = rotation[2]
+
+        pose = np.array([x, z, yaw])
+        self.relative_pose = pose - self.initial_pose
+
+        # keep yaw in range [-pi, pi]
+        if self.relative_pose[2] < -np.pi:
+            self.relative_pose[2] = self.relative_pose[2] % np.pi
+        elif self.relative_pose[2] > np.pi:
+            self.relative_pose[2] = self.relative_pose[2] % (-1*np.pi)
+
+    def _get_agent_position(self, agent_metadata):
+        """ Get the agent's position from metadata.
+
+        Args:
+            agent_metadata (str): Metadata string.
+
+        Returns:
+            np.ndarray: shape (3,) containing the agents (x, y, z) position.
+        """
+        return (
+            np.array(
+                self._read_position(ET.fromstring(agent_metadata).find("position"))
+            )
+                .astype(np.float32)
+                .reshape(-1)
+        )
+
+    def _get_agent_rotation(self, agent_metadata, as_euler=True):
+        """ Get the agent's rotation.
+
+        Args:
+            agent_metadata (str): Metadata string.
+            as_euler (bool): True to return zxy euler angles.
+                Otherwise, return quaternion.
+
+        Returns:
+            np.ndarray: shape (3,) containing (z, x, y)
+                euler angles.
+        """
+        root = ET.fromstring(agent_metadata)
+        x = float(root.find('quaternion').attrib['x'])
+        y = float(root.find('quaternion').attrib['y'])
+        z = float(root.find('quaternion').attrib['z'])
+        w = float(root.find('quaternion').attrib['w'])
+        return Rotation((x, y, z, w)).as_euler('zxy') if as_euler else (x, y, z, w)
+
+    def _read_position(self, pos):
+        """ Get (x, y, z) coordinates from metadata.
+
+        Args:
+            pos (str): XML element from metadata string.
+
+        Returns:
+            np.ndarray: shape (3, ), or (x, y, z) positions.
+        """
+        return np.array(
+            [pos.attrib["x"], pos.attrib["y"], pos.attrib["z"]], dtype=np.float32
+        )
