@@ -213,6 +213,8 @@ class TesseGym(GymEnv):
         if env_changed and not self.done:
             response = self.observe()
 
+        self.update_pose(response.metadata)
+
         return self.form_agent_observation(response), reward, self.done, {}
 
     def observe(self):
@@ -262,7 +264,6 @@ class TesseGym(GymEnv):
         Returns:
             np.ndarray: Observation given to the agent.
         """
-        self.update_pose(scene_observation.metadata)
         return scene_observation.images[0]
 
     @property
