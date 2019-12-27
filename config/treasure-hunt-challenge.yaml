@@ -1,0 +1,5 @@
+environment_file: '/home/za27933/tess/builds/v0.5.2/tesse_multiscene_v0.5.2_linux.x86_64'
+scenes: [4, 6, 6, 8]
+success_dist: 2
+n_targets: [50, 50, 50, 50]
+episode_length: 150

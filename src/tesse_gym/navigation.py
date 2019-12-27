@@ -57,6 +57,7 @@ class Navigation(TesseGym):
 
         Returns:
             float: Computed reward.
+            bool: True if environment was changed
         """
         reward = 0.0
         if action == 0:
@@ -77,4 +78,4 @@ class Navigation(TesseGym):
             reward -= 1.0  # Reward for colliding
             self.done = True  # If colliding, the scenario ends
 
-        return reward
+        return reward, False

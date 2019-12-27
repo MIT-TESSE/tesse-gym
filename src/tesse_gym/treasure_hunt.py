@@ -203,12 +203,6 @@ class TreasureHunt(TesseGym):
 
         reward = -0.01  # small time penalty
 
-        # Reset if agent falls out of env
-        # TODO: tmp check until aggressive random spawn jitter is fixed
-        if agent_position[1] < 0:
-            self.done = True
-            return reward, False
-
         # check for found targets
         if target_position.shape[0] > 0 and action == 3:
             found_targets = self.get_found_targets(agent_position, target_position, target_ids, agent_data)
@@ -328,3 +322,30 @@ class TreasureHunt(TesseGym):
             position.append(self._read_position(obj.find("position")))
             obj_ids.append(obj.find("id").text)
         return np.array(obj_ids, dtype=np.uint32), np.array(position, dtype=np.float32)
+
+
+class RGBSegDepthInput(TreasureHunt):
+    """ Legacy environment used for benchmarking """
+    DEPTH_SCALE = 10
+
+    @property
+    def observation_space(self):
+        """ This must be defined for custom observations. """
+        return spaces.Box(0, 255, dtype=np.float32, shape=(240, 320, 7))
+
+    def form_agent_observation(self, tesse_data):
+        """ Create the agent's observation from a TESSE data response. """
+        eo, seg, depth = tesse_data.images
+        observation = np.concatenate((eo / 255.0,
+                                      seg / 255.0,
+                                      depth[..., np.newaxis] * self.DEPTH_SCALE), axis=-1)
+        return observation
+
+    def observe(self):
+        cameras = [
+            (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
+            (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
+            (Camera.DEPTH, Compression.OFF, Channels.THREE)
+        ]
+        agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
+        return agent_data
