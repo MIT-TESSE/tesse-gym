@@ -292,6 +292,10 @@ class TesseGym(GymEnv):
         """
         raise NotImplementedError
 
+    def get_agent_pose(self):
+        """ Get agent pose relative to start location. """
+        return self.relative_pose
+
     def init_agent_pose(self):
         """ Initialize agent's starting pose """
         metadata = self.env.request(MetadataRequest()).metadata
