@@ -145,7 +145,7 @@ class TreasureHunt(TesseGym):
         if self.step_mode:
             self.advance_game_time(1)  # respawn doesn't advance game time
 
-        self.init_agent_pose()
+        self.init_pose()
 
         return self.form_agent_observation(self.observe())
 
@@ -277,7 +277,8 @@ class TreasureHunt(TesseGym):
 
         return found_targets
 
-    def get_target_orientation(self, agent_orientation, target_positions, agent_position):
+    @staticmethod
+    def get_target_orientation(agent_orientation, target_positions, agent_position):
         """ Get orientation of targets relative to agents given the agent position, orientation,
         and target positions.
 
@@ -293,7 +294,7 @@ class TreasureHunt(TesseGym):
         heading = np.array([[np.sin(agent_orientation), np.cos(agent_orientation)]])
         target_relative_to_agent = target_positions - agent_position
         target_orientation = np.arccos(np.dot(heading, target_relative_to_agent.T) /
-            (np.linalg.norm(target_relative_to_agent, axis=-1) * np.linalg.norm(heading)))
+                                       (np.linalg.norm(target_relative_to_agent, axis=-1) * np.linalg.norm(heading)))
         return np.rad2deg(target_orientation).reshape(-1)
 
     def _success_action(self):
@@ -302,7 +303,8 @@ class TreasureHunt(TesseGym):
             self.env.send(self.TransformMessage(0, 0, 360 // 5))
             time.sleep(0.1)
 
-    def _collision(self, metadata):
+    @staticmethod
+    def _collision(metadata):
         """ Check for collision with environment.
 
         Args:
@@ -312,7 +314,7 @@ class TreasureHunt(TesseGym):
             bool: True if agent has collided with the environment. Otherwise, false.
         """
         return (
-            ET.fromstring(metadata).find("collision").attrib["status"].lower() == "true"
+                ET.fromstring(metadata).find("collision").attrib["status"].lower() == "true"
         )
 
     def _get_target_id_and_positions(self, target_metadata):
