@@ -96,7 +96,7 @@ class TesseGym(GymEnv):
             init_hook (callable): Method to adjust any experiment specific parameters
                 upon startup (e.g. camera parameters).
             continuous_control (bool): True to use a continuous controller to move the
-                agent. False to use discrete transforms.
+                agent. False to use discrete transforms..
             launch_tesse (bool): True to start tesse instance. Otherwise, assume another
                 instance is running.
         """
@@ -119,6 +119,8 @@ class TesseGym(GymEnv):
                 ]
             )
 
+            time.sleep(10)  # wait for sim to initialize
+
         # setup environment
         self.env = Env(
             simulation_ip=network_config.simulation_ip,
@@ -129,9 +131,8 @@ class TesseGym(GymEnv):
             step_port=network_config.step_port,
         )
 
-        if scene_id:
-            time.sleep(10)  # wait for sim to initialize
-            self.env.send(SceneRequest(scene_id))
+        if scene_id is not None:
+            self.env.request(SceneRequest(scene_id))
 
         # if specified, set step mode parameters
         self.step_mode = False
@@ -152,6 +153,7 @@ class TesseGym(GymEnv):
         self.max_steps = max_steps
         self.done = False
         self.steps = 0
+
         self.env.request(SetHoverHeight(self.hover_height))
         self.env.send((ColliderRequest(1)))
 
@@ -293,7 +295,7 @@ class TesseGym(GymEnv):
         """
         raise NotImplementedError
 
-    def get_agent_pose(self):
+    def get_pose(self):
         """ Get agent pose relative to start location. """
         return self.relative_pose
 
