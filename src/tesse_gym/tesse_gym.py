@@ -216,7 +216,7 @@ class TesseGym(GymEnv):
         if env_changed and not self.done:
             response = self.observe()
 
-        self.update_pose(response.metadata)
+        self._update_pose(response.metadata)
 
         return self.form_agent_observation(response), reward, self.done, {}
 
@@ -234,7 +234,7 @@ class TesseGym(GymEnv):
         self.done = False
         self.steps = 0
         self.env.send(Respawn())
-        self.init_pose()
+        self._init_pose()
         return self.form_agent_observation(self.observe())
 
     def render(self, mode="rgb_array"):
@@ -299,7 +299,7 @@ class TesseGym(GymEnv):
         """ Get agent pose relative to start location. """
         return self.relative_pose
 
-    def init_pose(self):
+    def _init_pose(self):
         """ Initialize agent's starting pose """
         metadata = self.env.request(MetadataRequest()).metadata
         position = self._get_agent_position(metadata)
@@ -314,7 +314,7 @@ class TesseGym(GymEnv):
 
         self.relative_pose = np.zeros((3,))
 
-    def update_pose(self, metadata):
+    def _update_pose(self, metadata):
         """ Update current pose.
 
         Args:

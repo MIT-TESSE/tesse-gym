@@ -145,7 +145,7 @@ class TreasureHunt(TesseGym):
         if self.step_mode:
             self.advance_game_time(1)  # respawn doesn't advance game time
 
-        self.init_pose()
+        self._init_pose()
 
         return self.form_agent_observation(self.observe())
 
