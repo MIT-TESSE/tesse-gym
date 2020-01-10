@@ -83,7 +83,7 @@ class TesseGym(GymEnv):
         step_rate: int = -1,
         init_hook: callable = None,
         continuous_control: bool = False,
-        launch_tesse: bool = True
+        launch_tesse: bool = True,
     ):
         """
         Args:

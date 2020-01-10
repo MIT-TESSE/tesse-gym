@@ -93,7 +93,7 @@ class TreasureHunt(TesseGym):
             step_rate,
             init_hook=init_hook,
             continuous_control=continuous_control,
-            launch_tesse=launch_tesse
+            launch_tesse=launch_tesse,
         )
         self.n_targets = n_targets
         self.success_dist = success_dist

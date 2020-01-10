@@ -22,7 +22,7 @@
 import defusedxml.ElementTree as ET
 from scipy.spatial.transform import Rotation
 from tesse.msgs import *
-
+from tesse.utils import UdpListener
 
 def get_attributes(root, element, *attributes):
     """ Get XML element attributes.
@@ -96,12 +96,14 @@ class ContinuousController:
         self,
         env,
         threshold=np.array([0.05, 0.05, 0.01]),
-        framerate=5,
+        rate_threshold=np.array([0.01, 0.01, 0.01]),
+        framerate=20,
         max_steps=100,
-        pos_error_gain=4.0,
-        pos_error_rate_gain=2.0,
-        yaw_error_gain=0.1,
-        yaw_error_rate_gain=0.05,
+        pos_error_gain=200,
+        pos_error_rate_gain=35,
+        yaw_error_gain=1.6,
+        yaw_error_rate_gain=0.27,
+        udp_port=9004
     ):
         """ Initialize PD controller.
 
@@ -109,6 +111,8 @@ class ContinuousController:
             env (Env): Tesse Env object.
             threshold (np.ndarray): (x, z, rotation) error threshold to
                 be considered at the goal point.
+            rate_threshold (np.ndarray): (x velocity, z velocity, angular velocity)
+                limit to be considered at goal.
             framerate (int): TESSE step mode framerate.
             max_steps (int): Maximum steps controller will take to reach goal.
             pos_error_gain (float): Position Proportional gain.
@@ -118,6 +122,7 @@ class ContinuousController:
         """
         self.env = env
         self.threshold = threshold
+        self.rate_threshold = rate_threshold
         self.env.send(SetFrameRate(framerate))  # Put into step mode
         self.max_steps = max_steps
         self.pos_error_gain = pos_error_gain
@@ -126,7 +131,15 @@ class ContinuousController:
         self.yaw_error_rate_gain = yaw_error_rate_gain
 
         self.goal = []
-        self.set_goal(self.get_data())  # Set goal to current location
+
+        self.last_metadata = None
+        self.udp_listener = UdpListener(port=udp_port, rate=200)
+        self.udp_listener.subscribe("catch_metadata", self.catch_udp_broadcast)
+
+        self.udp_listener.start()
+
+    def catch_udp_broadcast(self, udp_metadata):
+        self.last_metadata = udp_metadata
 
     def transform(self, translate_x=0.0, translate_z=0.0, rotate_y=0.0):
         """ Apply desired transform via force commands.
@@ -153,8 +166,11 @@ class ContinuousController:
 
     def get_data(self):
         """ Gets current data for agent """
-        response = self.env.request(MetadataRequest())
-        return parse_metadata(response.metadata)
+        if self.last_metadata is None:
+            response = self.env.request(MetadataRequest()).metadata
+        else:
+            response = self.last_metadata
+        return parse_metadata(response)
 
     def set_goal(self, data, translate_x=0.0, translate_z=0.0, rotate_y=0.0):
         """ Sets the goal for the controller via creating a waypoint based
@@ -188,13 +204,18 @@ class ContinuousController:
             data (Dict[str]): Agent's position, orientation, velocity,
                 and acceleration.
         """
+        # check position
         current = np.array(
             [data["position"]["x"], data["position"]["z"], data["rotation"][2]]
         )
         error = current - self.goal
         error[2] = (error[2] + np.pi) % (2 * np.pi) - np.pi  # wrap to pi
 
-        return np.all(np.abs(error) < self.threshold)
+        current_rate = np.array(
+            [data['velocity']['x_dot'], data['velocity']['z_dot'], data['angular_velocity']['y_ang_dot']]
+        )
+
+        return np.all(np.abs(error) < self.threshold) and np.all(np.abs(current_rate) < self.rate_threshold)
 
     def control(self, data):
         """ Applies PD-control to move to the goal point.
