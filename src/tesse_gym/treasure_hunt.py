@@ -24,7 +24,6 @@ import defusedxml.ElementTree as ET
 import numpy as np
 import time
 from gym import spaces
-from scipy.spatial.transform import Rotation
 from enum import Enum
 from tesse.msgs import (
     Camera,
@@ -55,7 +54,7 @@ class TreasureHunt(TesseGym):
         environment_file: str,
         network_config: NetworkConfig = NetworkConfig(),
         scene_id: int = None,
-        max_steps: int = 100,
+        max_steps: int = 300,
         step_rate: int = -1,
         n_targets: int = 50,
         success_dist: float = 2,
@@ -64,20 +63,13 @@ class TreasureHunt(TesseGym):
         hunt_mode: HuntMode = HuntMode.MULTIPLE,
         target_found_reward: int = 1,
         continuous_control: bool = False,
-        launch_tesse: bool = False,
+        launch_tesse: bool = True,
     ):
         """ Initialize the TESSE treasure hunt environment.
 
         Args:
             environment_file (str): Path to TESSE executable.
-            simulation_ip (str): TESSE IP address
-            own_ip (str): Interface IP address.
-            worker_id (int): Subprocess worker id.
-            base_port (int): Ports are assigned as follows:
-                position_port = `base_port`
-                metadata_port = `base_port` + 1
-                image_port = `base_port` + 2
-                step_port = `base_port` + 5
+            network_config (NetworkConfig): Network configuration parameters.
             scene_id (int): Scene id to load.
             max_steps (int): Maximum number of steps in the episode.
             step_rate (int): If specified, game time is fixed to
@@ -152,6 +144,8 @@ class TreasureHunt(TesseGym):
 
         if self.step_mode:
             self.advance_game_time(1)  # respawn doesn't advance game time
+
+        self._init_pose()
 
         return self.form_agent_observation(self.observe())
 
@@ -283,7 +277,8 @@ class TreasureHunt(TesseGym):
 
         return found_targets
 
-    def get_target_orientation(self, agent_orientation, target_positions, agent_position):
+    @staticmethod
+    def get_target_orientation(agent_orientation, target_positions, agent_position):
         """ Get orientation of targets relative to agents given the agent position, orientation,
         and target positions.
 
@@ -299,7 +294,7 @@ class TreasureHunt(TesseGym):
         heading = np.array([[np.sin(agent_orientation), np.cos(agent_orientation)]])
         target_relative_to_agent = target_positions - agent_position
         target_orientation = np.arccos(np.dot(heading, target_relative_to_agent.T) /
-            (np.linalg.norm(target_relative_to_agent, axis=-1) * np.linalg.norm(heading)))
+                                       (np.linalg.norm(target_relative_to_agent, axis=-1) * np.linalg.norm(heading)))
         return np.rad2deg(target_orientation).reshape(-1)
 
     def _success_action(self):
@@ -308,7 +303,8 @@ class TreasureHunt(TesseGym):
             self.env.send(self.TransformMessage(0, 0, 360 // 5))
             time.sleep(0.1)
 
-    def _collision(self, metadata):
+    @staticmethod
+    def _collision(metadata):
         """ Check for collision with environment.
 
         Args:
@@ -318,44 +314,8 @@ class TreasureHunt(TesseGym):
             bool: True if agent has collided with the environment. Otherwise, false.
         """
         return (
-            ET.fromstring(metadata).find("collision").attrib["status"].lower() == "true"
+                ET.fromstring(metadata).find("collision").attrib["status"].lower() == "true"
         )
-
-    def _get_agent_position(self, agent_metadata):
-        """ Get the agent's position from metadata.
-
-        Args:
-            agent_metadata (str): Metadata string.
-
-        Returns:
-            np.ndarray: shape (3,) containing the agents (x, y, z) position.
-        """
-        return (
-            np.array(
-                self._read_position(ET.fromstring(agent_metadata).find("position"))
-            )
-            .astype(np.float32)
-            .reshape(-1)
-        )
-
-    def _get_agent_rotation(self, agent_metadata, as_euler=True):
-        """ Get the agent's rotation.
-
-        Args:
-            agent_metadata (str): Metadata string.
-            as_euler (bool): True to return zxy euler angles.
-                Otherwise, return quaternion.
-
-        Returns:
-            np.ndarray: shape (3,) containing (z, x, y)
-                euler angles.
-        """
-        root = ET.fromstring(agent_metadata)
-        x = float(root.find('quaternion').attrib['x'])
-        y = float(root.find('quaternion').attrib['y'])
-        z = float(root.find('quaternion').attrib['z'])
-        w = float(root.find('quaternion').attrib['w'])
-        return Rotation((x, y, z, w)).as_euler('zxy') if as_euler else (x, y, z, w)
 
     def _get_target_id_and_positions(self, target_metadata):
         """ Get target positions from metadata.
@@ -370,16 +330,3 @@ class TreasureHunt(TesseGym):
             position.append(self._read_position(obj.find("position")))
             obj_ids.append(obj.find("id").text)
         return np.array(obj_ids, dtype=np.uint32), np.array(position, dtype=np.float32)
-
-    def _read_position(self, pos):
-        """ Get (x, y, z) coordinates from metadata.
-
-        Args:
-            pos (str): XML element from metadata string.
-
-        Returns:
-            np.ndarray: shape (3, ), or (x, y, z) positions.
-        """
-        return np.array(
-            [pos.attrib["x"], pos.attrib["y"], pos.attrib["z"]], dtype=np.float32
-        )
