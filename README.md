@@ -12,7 +12,7 @@ Navigation | Treasure Hunt
 ### From Source
 Using [Anaconda](https://www.anaconda.com/distribution/#download-section) or [miniconda](https://docs.conda.io/en/latest/miniconda.html) is highly recommended. Python 3.6 is required.
 
-1. Clone this repository
+1. Clone this Repository
 ```sh
 git clone git@github.mit.edu:TESS/tesse-gym.git
 cd tesse-gym
@@ -45,7 +45,7 @@ cd ../../tesse-gym
 python setup.py install
 ```
 
-## Getting started
+## Getting Started
 
 ### Treasure Hunt Training
 
@@ -69,7 +69,7 @@ To evaluate an agent:
 python eval.py --env-config config/treasure-hunt-challenge.yaml --agent-config YOUR_CONFIG
 ```  
   
-#### Evaluate the [example notebook](notebooks/stable-baselines-ppo.ipynb) Agent
+#### Evaluate the [Example Notebook](notebooks/stable-baselines-ppo.ipynb) Agent
 
 To run this evaluation, make sure that:
 
@@ -90,7 +90,7 @@ Then, run the evaluation script
 
 The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
 
-### New tasks
+### New Tasks
 At a minimum, a new task will inherit `tess_gym.TesseGym` and impliment the following:
 
 ```python
