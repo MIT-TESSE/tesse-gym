@@ -3,6 +3,10 @@
 Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
 
 
+Navigation | Treasure Hunt
+:----------:|:---------------:
+![](docs/nav-1.gif) | ![](docs/hunt-1.gif)
+
 ## Installation
 
 ### From Source
@@ -58,11 +62,6 @@ See the [example notebook](notebooks/stable-baselines-ppo.ipynb) to get started.
 ### 2. Navigation
 
 The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
-
-
-Navigation | Treasure Hunt
-:----------:|:---------------:
-![](docs/nav-1.gif) | ![](docs/hunt-1.gif)
 
 
 ### New tasks
