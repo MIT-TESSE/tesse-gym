@@ -47,22 +47,44 @@ python setup.py install
 
 ## Getting started
 
-This package provides environments for the following tasks:
+### Treasure Hunt Training
 
-### 1. Treasure Hunt
-
-#### Objective 
-Treasures (yellow cubes) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. 
-
-#### Observation space
-The agent acts on a first-person RGB image. We may add depth for the challange and provide a semantic segmentation model.
+Treasures (yellow cubes) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. The agent acts on a first-person RGB, depth, and semantic segmentation images as well as pose.
 
 See the [example notebook](notebooks/stable-baselines-ppo.ipynb) to get started.
 
-### 2. Navigation
+### Evaluation
+
+To evaluate an agent:
+
+1. Update the TESSE build path in `./evaluation/config/treasure-hunt-challenge.yaml`
+
+2. Define the agent in `./baselines/agents.py`
+
+3. Add a configuration file to `./baselines/config`
+
+4. Edit `run_treasure_hunt_eval.sh` to include the following
+
+```sh
+python eval.py --env-config config/treasure-hunt-challenge.yaml --agent-config YOUR_CONFIG
+```  
+  
+#### Evaluate the [example notebook](notebooks/stable-baselines-ppo.ipynb) Agent
+
+To run this evaluation, make sure the TESSE path from step 1 is correct and that you have the proper weight file, `./baselines/config/stable-baselines-ppo-1.pkl`. If your on the LLAN, the weight file can be found at `//group104/users/RavichandranZachary/public/tess/icra-2020-ws/rl-models/stable-baselines-ppo-1.pkl`
+
+Then, run the evaluation script 
+
+```sh 
+./run_treasure_hunt_eval.sh
+```
+
+
+## Other Tasks
+
+### Navigation
 
 The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
-
 
 ### New tasks
 At a minimum, a new task will inherit `tess_gym.TesseGym` and impliment the following:
@@ -79,7 +101,6 @@ class CustomTask(TesseGym):
     def compute_reward(self, observation, action):
         pass
 ```
-  
 
 ### Disclaimer
 
