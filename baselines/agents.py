@@ -7,19 +7,20 @@ class TreasureHuntAgentV1(Agent):
     def __init__(self, config):
         self.model = PPO2.load(config["weights"])
         self.state = None
+        # Number of environments used to train model
+        # to which stable-baselines input tensor size is fixed
+        self.n_train_envs = self.model.initial_state.shape[0]
 
     def act(self, observation):
-        """
+        """ Act upon an observation.
 
         args:
-            observation (np.ndarray): observation of shape (240, 320, 7).
+            observation (np.ndarray): observation.
 
         returns:
             int: action in (forward, right, left, declare target)
         """
-        # model was trained on 6 parallel environments so expects an observation
-        # of shape (6, 240, 320, 7)
-        observation = np.repeat(observation[np.newaxis], 6, 0)
+        observation = np.repeat(observation[np.newaxis], self.n_train_envs, 0)
         actions, state = self.model.predict(observation, state=self.state)
         self.state = state  # update model state
         return actions[0]
