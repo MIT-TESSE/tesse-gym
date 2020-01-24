@@ -236,14 +236,14 @@ class TesseGym(GymEnv):
 
         self.apply_action(action)
         response = self.observe()
-        reward, env_changed = self.compute_reward(response, action)
+        reward, reward_info = self.compute_reward(response, action)
 
-        if env_changed and not self.done:
+        if reward_info["env_changed"] and not self.done:
             response = self.observe()
 
         self._update_pose(response.metadata)
 
-        return self.form_agent_observation(response), reward, self.done, {}
+        return self.form_agent_observation(response), reward, self.done, reward_info
 
     def observe(self):
         """ Observe state. """

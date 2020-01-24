@@ -192,12 +192,16 @@ class TreasureHunt(TesseGym):
             action (action_space): Action taken by agent.
 
         Returns:
-            float: Computed reward.
+            Tuple[float, dict[str, [bool, int]]
+                Computed reward.
+                Dictionary with the following keys
+                    - env_changed: True if agent changed the environment.
+                    - collision: True if there was a collision
+
         """
         targets = self.env.request(ObjectsRequest())
         agent_data = observation
-        # track if agent changes environment (e.g. collects reward) so it can reobserve
-        env_changed = False
+        reward_info = {"env_changed": True, "collision": False, "n_found_targets": 0}
 
         # compute agent's distance from targets
         agent_position = self._get_agent_position(agent_data.metadata)
@@ -214,12 +218,13 @@ class TreasureHunt(TesseGym):
             )
 
             if len(found_targets):
+                reward_info["n_found_targets"] += len(found_targets)
                 # if in `MULTIPLE` mode, remove found targets
                 if self.hunt_mode is HuntMode.MULTIPLE:
                     self.n_found_targets += len(found_targets)
                     reward += self.target_found_reward * len(found_targets)
                     self.env.request(RemoveObjectsRequest(ids=found_targets))
-                    env_changed = True
+                    reward_info["env_changed"] = True
 
                     # if all targets have been found, restart the  episode
                     if self.n_found_targets == self.n_targets:
@@ -236,10 +241,13 @@ class TreasureHunt(TesseGym):
         if self.steps > self.max_steps:
             self.done = True
 
-        if self.restart_on_collision and self._collision(agent_data.metadata):
-            self.done = True
+        if self._collision(agent_data.metadata):
+            reward_info["collision"] = True
 
-        return reward, env_changed
+            if self.restart_on_collision:
+                self.done = True
+
+        return reward, reward_info
 
     def get_found_targets(
         self, agent_position, target_position, target_ids, agent_data
@@ -341,28 +349,57 @@ class TreasureHunt(TesseGym):
         return np.array(obj_ids, dtype=np.uint32), np.array(position, dtype=np.float32)
 
 
-class RGBSegDepthInput(TreasureHunt):
-    """ Legacy environment used for benchmarking """
-    DEPTH_SCALE = 10
+class MultiModalandPose(TreasureHunt):
+    """ Define a custom TESSE gym environment to provide RGB, depth,
+    segmentation, and pose data.
+    """
+
+    DEPTH_SCALE = 5
+    N_CLASSES = 11
+    WALL_CLS = 2
 
     @property
     def observation_space(self):
         """ This must be defined for custom observations. """
-        return spaces.Box(0, 255, dtype=np.float32, shape=(240, 320, 7))
+        return spaces.Box(np.Inf, np.Inf, shape=(240 * 320 * 5 + 3,))  # imgs + pose
 
     def form_agent_observation(self, tesse_data):
-        """ Create the agent's observation from a TESSE data response. """
+        """ Create the agent's observation from a TESSE data response.
+
+        Args:
+            tesse_data (DataResponse): TESSE DataResponse object containing
+                RGB, depth, segmentation, and pose.
+
+        Returns:
+            np.ndarray: The agent's observation.
+        """
         eo, seg, depth = tesse_data.images
-        observation = np.concatenate((eo / 255.0,
-                                      seg / 255.0,
-                                      depth[..., np.newaxis] * self.DEPTH_SCALE), axis=-1)
-        return observation
+        seg = seg[..., 0].copy()  # get segmentation as one-hot encoding
+        seg[seg > (self.N_CLASSES - 1)] = self.WALL_CLS  # assign background to wall cls
+        observation = np.concatenate(
+            (
+                eo / 255.0,
+                seg[..., np.newaxis] / (self.N_CLASSES - 1),
+                (depth[..., np.newaxis] * self.DEPTH_SCALE).clip(0, 1),
+            ),
+            axis=-1,
+        ).reshape(-1)
+        pose = self.get_pose().reshape((3))
+
+        if (np.abs(pose) > 100).any():
+            raise ValueError("Pose is out of observation space")
+        return np.concatenate((observation, pose))
 
     def observe(self):
+        """ Get observation data from TESSE.
+
+        Returns:
+            DataResponse: TESSE DataResponse object.
+        """
         cameras = [
             (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
             (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
-            (Camera.DEPTH, Compression.OFF, Channels.THREE)
+            (Camera.DEPTH, Compression.OFF, Channels.THREE),
         ]
         agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
         return agent_data
