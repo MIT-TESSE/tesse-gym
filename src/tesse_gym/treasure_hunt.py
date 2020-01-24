@@ -19,12 +19,14 @@
 # this work.
 ###################################################################################################
 
-from .tesse_gym import TesseGym, NetworkConfig
+from enum import Enum
+import time
+
 import defusedxml.ElementTree as ET
 import numpy as np
-import time
 from gym import spaces
-from enum import Enum
+
+from .tesse_gym import TesseGym, NetworkConfig
 from tesse.msgs import (
     Camera,
     DataRequest,
@@ -93,7 +95,7 @@ class TreasureHunt(TesseGym):
             step_rate,
             init_hook=init_hook,
             continuous_control=continuous_control,
-            launch_tesse=launch_tesse
+            launch_tesse=launch_tesse,
         )
         self.n_targets = n_targets
         self.success_dist = success_dist
@@ -145,7 +147,7 @@ class TreasureHunt(TesseGym):
         if self.step_mode:
             self.advance_game_time(1)  # respawn doesn't advance game time
 
-        self.init_agent_pose()
+        self._init_pose()
 
         return self.form_agent_observation(self.observe())
 
@@ -199,13 +201,17 @@ class TreasureHunt(TesseGym):
 
         # compute agent's distance from targets
         agent_position = self._get_agent_position(agent_data.metadata)
-        target_ids, target_position = self._get_target_id_and_positions(targets.metadata)
+        target_ids, target_position = self._get_target_id_and_positions(
+            targets.metadata
+        )
 
         reward = -0.01  # small time penalty
 
         # check for found targets
         if target_position.shape[0] > 0 and action == 3:
-            found_targets = self.get_found_targets(agent_position, target_position, target_ids, agent_data)
+            found_targets = self.get_found_targets(
+                agent_position, target_position, target_ids, agent_data
+            )
 
             if len(found_targets):
                 # if in `MULTIPLE` mode, remove found targets
@@ -235,7 +241,9 @@ class TreasureHunt(TesseGym):
 
         return reward, env_changed
 
-    def get_found_targets(self, agent_position, target_position, target_ids, agent_data):
+    def get_found_targets(
+        self, agent_position, target_position, target_ids, agent_data
+    ):
         """ Get targets that are within `self.success_dist` of agent and in FOV.
 
         Args:
@@ -264,14 +272,17 @@ class TreasureHunt(TesseGym):
             targets_within_dist = target_ids[dists < self.success_dist]
             found_target_positions = target_position[dists < self.success_dist]
             agent_orientation = self._get_agent_rotation(agent_data.metadata)[-1]
-            angles_rel_agent = self.get_target_orientation(agent_orientation,
-                                                           found_target_positions,
-                                                           agent_position)
-            found_targets = targets_within_dist[np.where(angles_rel_agent < self.CAMERA_FOV)]
+            angles_rel_agent = self.get_target_orientation(
+                agent_orientation, found_target_positions, agent_position
+            )
+            found_targets = targets_within_dist[
+                np.where(angles_rel_agent < self.CAMERA_FOV)
+            ]
 
         return found_targets
 
-    def get_target_orientation(self, agent_orientation, target_positions, agent_position):
+    @staticmethod
+    def get_target_orientation(agent_orientation, target_positions, agent_position):
         """ Get orientation of targets relative to agents given the agent position, orientation,
         and target positions.
 
@@ -286,8 +297,13 @@ class TreasureHunt(TesseGym):
         """
         heading = np.array([[np.sin(agent_orientation), np.cos(agent_orientation)]])
         target_relative_to_agent = target_positions - agent_position
-        target_orientation = np.arccos(np.dot(heading, target_relative_to_agent.T) /
-            (np.linalg.norm(target_relative_to_agent, axis=-1) * np.linalg.norm(heading)))
+        target_orientation = np.arccos(
+            np.dot(heading, target_relative_to_agent.T)
+            / (
+                np.linalg.norm(target_relative_to_agent, axis=-1)
+                * np.linalg.norm(heading)
+            )
+        )
         return np.rad2deg(target_orientation).reshape(-1)
 
     def _success_action(self):
@@ -296,7 +312,8 @@ class TreasureHunt(TesseGym):
             self.env.send(self.TransformMessage(0, 0, 360 // 5))
             time.sleep(0.1)
 
-    def _collision(self, metadata):
+    @staticmethod
+    def _collision(metadata):
         """ Check for collision with environment.
 
         Args:
