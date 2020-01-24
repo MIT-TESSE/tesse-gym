@@ -1,5 +1,6 @@
 """ Treasure hunt evaluation """
-from ..treasure_hunt import RGBSegDepthInput
+from ..treasure_hunt import MultiModalandPose
+from ..utils import set_multiple_camera_params
 from tesse.msgs import *
 
 from .benchmark import Benchmark
@@ -29,13 +30,14 @@ class TreasureHuntBenchmark(Benchmark):
             if isinstance(self.n_targets, int)
             else self.n_targets
         )
-        self.env = RGBSegDepthInput(
+        self.env = MultiModalandPose(
             environment_file=config["environment_file"],
             scene_id=self.scenes[0],
             success_dist=config["success_dist"],
             n_targets=config["n_targets"],
             max_steps=config["episode_length"],
             step_rate=self.STEP_RATE,
+            init_hook=set_multiple_camera_params,
         )
 
     def evaluate(self, agent):
@@ -49,7 +51,12 @@ class TreasureHuntBenchmark(Benchmark):
         """
         results = {}
         for episode in range(len(self.scenes)):
-            if episode > 0:  # scene 0 is set during initialization
+            n_found_targets = 0
+            n_predictions = 0
+            n_collisions = 0
+            step = 0
+
+            if episode > 1:  # scene 1 is set during initialization
                 self.env.env.request(SceneRequest(self.scenes[episode]))
             if self.random_seeds:
                 self.env.env.request(SetRandomSeed(self.random_seeds[episode]))
@@ -60,10 +67,21 @@ class TreasureHuntBenchmark(Benchmark):
             for step in range(self.episode_length):
                 action = agent.act(obs)
                 obs, reward, done, info = self.env.step(action)
+                n_found_targets += info["n_found_targets"]
 
+                if action == 3:
+                    n_predictions += 1
+                if info["collision"]:
+                    n_collisions += 1
                 if done:
                     break
 
-            results[episode] = self.env.n_found_targets
+            results[episode] = {
+                "n_found_targets": n_found_targets,
+                "precision": n_found_targets / n_predictions,
+                "recall": n_found_targets / self.env.n_targets,
+                "collisions": n_collisions,
+                "n_steps": step + 1,
+            }
 
         return results
