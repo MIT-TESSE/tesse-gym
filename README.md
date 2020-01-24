@@ -53,7 +53,7 @@ Treasures (yellow cubes) are randomly placed throughout a TESSE environment. The
 #### Observation space
 The agent acts on a first-person RGB image. We may add depth for the challange and provide a semantic segmentation model.
 
-See the [example notebook](notebooks/stable-baselines-challenge-baseline.ipynb) to get started.
+See the [example notebook](notebooks/stable-baselines-ppo.ipynb) to get started.
 
 ### 2. Navigation
 
