@@ -5,7 +5,7 @@ Provides a Python interface for reinforcement learning using the TESSE Unity env
 
 Navigation | Treasure Hunt
 :----------:|:---------------:
-![](docs/nav-1.gif) | ![](docs/hunt-1.gif)
+![](docs/hunt-1.gif) | ![](docs/nav-1.gif)
 
 ## Installation
 
@@ -71,7 +71,11 @@ python eval.py --env-config config/treasure-hunt-challenge.yaml --agent-config Y
   
 #### Evaluate the [example notebook](notebooks/stable-baselines-ppo.ipynb) Agent
 
-To run this evaluation, make sure the TESSE path from step 1 is correct and that you have the proper weight file, `./baselines/config/stable-baselines-ppo-1.pkl`. If your on the LLAN, the weight file can be found at `//group104/users/RavichandranZachary/public/tess/icra-2020-ws/rl-models/stable-baselines-ppo-1.pkl`
+To run this evaluation, make sure that:
+
+1. TESSE path from step 1 is correct.
+
+2. You have the proper weight file, `./baselines/config/stable-baselines-ppo-1.pkl`. If your on the LLAN, the weight file can be found at `//group104/users/RavichandranZachary/public/tess/icra-2020-ws/rl-models/stable-baselines-ppo-1.pkl`
 
 Then, run the evaluation script 
 
