@@ -3,3 +3,4 @@ scenes: [7]
 success_dist: 2
 n_targets: 20
 episode_length: 300
+launch_tesse: True

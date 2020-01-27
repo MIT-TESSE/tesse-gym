@@ -11,7 +11,7 @@ class TreasureHuntBenchmark(Benchmark):
         """ Configure evaluation.
 
         Args:
-            config (dict): Evaluation parameteros
+            config (dict): Evaluation parameters
                 - episode_length
                 - scenes
                 - random seeds (optional)
@@ -38,6 +38,7 @@ class TreasureHuntBenchmark(Benchmark):
             max_steps=config["episode_length"],
             step_rate=self.STEP_RATE,
             init_hook=set_multiple_camera_params,
+            launch_tesse=config["launch_tesse"] if "launch_tesse" in config else True
         )
 
     def evaluate(self, agent):
