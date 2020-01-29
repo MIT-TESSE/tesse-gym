@@ -24,6 +24,11 @@ from scipy.spatial.transform import Rotation
 from tesse.msgs import *
 from tesse.utils import UdpListener
 
+
+# gains 1: 150, 35, 1.6, 0.27
+# gains 2: 200, 35, 1.6, 0.27
+
+
 def get_attributes(root, element, *attributes):
     """ Get XML element attributes.
 
@@ -99,7 +104,7 @@ class ContinuousController:
         rate_threshold=np.array([0.01, 0.01, 0.01]),
         framerate=20,
         max_steps=100,
-        pos_error_gain=200,
+        pos_error_gain=150,
         pos_error_rate_gain=35,
         yaw_error_gain=1.6,
         yaw_error_rate_gain=0.27,
