@@ -1,0 +1,6 @@
+environment_file: '/home/za27933/tess/builds/v0.5.3/tesse-treasure-hunt-v0.5.3.x86_64'
+scenes: [7]
+success_dist: 2
+n_targets: 20
+episode_length: 300
+launch_tesse: True

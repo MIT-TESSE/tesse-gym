@@ -21,24 +21,40 @@
 
 import atexit
 import subprocess
-import numpy as np
 from collections import namedtuple
+import time
+
+import numpy as np
 import defusedxml.ElementTree as ET
 from scipy.spatial.transform import Rotation
 from gym import Env as GymEnv, logger, spaces
+
 from tesse.env import Env
 from tesse.msgs import *
 from .continuous_control import ContinuousController
 
-import time
+
+NetworkConfig = namedtuple(
+    "NetworkConfig",
+    [
+        "simulation_ip",
+        "own_ip",
+        "position_port",
+        "metadata_port",
+        "image_port",
+        "step_port",
+    ],
+    defaults=("localhost", "localhost", 9000, 9001, 9002, 9005),
+)
 
 
-NetworkConfig = namedtuple("NetworkConfig",
-                           ['simulation_ip', 'own_ip', 'position_port', 'metadata_port', 'image_port', 'step_port'],
-                           defaults=('localhost', 'localhost', 9000, 9001, 9002, 9005))
-
-
-def get_network_config(simulation_ip='localhost', own_ip='localhost', base_port=9000, worker_id=0, n_ports=6):
+def get_network_config(
+    simulation_ip="localhost",
+    own_ip="localhost",
+    base_port=9000,
+    worker_id=0,
+    n_ports=6,
+):
     """ Get a TESSE network configuration instance.
 
     Args:
@@ -52,13 +68,14 @@ def get_network_config(simulation_ip='localhost', own_ip='localhost', base_port=
     Returns:
         NetworkConfig: NetworkConfig object.
     """
-    return NetworkConfig(simulation_ip=simulation_ip,
-                         own_ip=own_ip,
-                         position_port=base_port + worker_id * n_ports,
-                         metadata_port=base_port + worker_id * n_ports + 1,
-                         image_port=base_port + worker_id * n_ports + 2,
-                         step_port=base_port + worker_id * n_ports + 5,
-                         )
+    return NetworkConfig(
+        simulation_ip=simulation_ip,
+        own_ip=own_ip,
+        position_port=base_port + worker_id * n_ports,
+        metadata_port=base_port + worker_id * n_ports + 1,
+        image_port=base_port + worker_id * n_ports + 2,
+        step_port=base_port + worker_id * n_ports + 5,
+    )
 
 
 class TesseGym(GymEnv):
@@ -145,10 +162,14 @@ class TesseGym(GymEnv):
         # if specified, set continuous control
         self.continuous_control = continuous_control
         if self.continuous_control and step_rate < 1:
-            raise ValueError(f"A step rate must be given to run the continuous controller")
+            raise ValueError(
+                f"A step rate must be given to run the continuous controller"
+            )
 
         if self.continuous_control:
-            self.continuous_controller = ContinuousController(self.env, framerate=step_rate)
+            self.continuous_controller = ContinuousController(
+                self.env, framerate=step_rate
+            )
 
         self.max_steps = max_steps
         self.done = False
@@ -162,14 +183,18 @@ class TesseGym(GymEnv):
             init_hook(self)
 
         # track relative pose throughout episode
-        self.initial_pose = np.zeros((3,))  # (x, z, yaw) pose from starting point in agent frame
+        self.initial_pose = np.zeros(
+            (3,)
+        )  # (x, z, yaw) pose from starting point in agent frame
         self.initial_rotation = np.eye(2)
         self.relative_pose = np.zeros((3,))
 
     def advance_game_time(self, n_steps):
         """ Advance game time in step mode by sending step forces of 0 to TESSE. """
         for i in range(n_steps):
-            self.env.send(StepWithForce(0, 0, 0))  # move game time to update observation
+            self.env.send(
+                StepWithForce(0, 0, 0)
+            )  # move game time to update observation
 
     def transform(self, x, z, y):
         """ Apply desired transform to agent. If in continuous mode, the
@@ -211,14 +236,14 @@ class TesseGym(GymEnv):
 
         self.apply_action(action)
         response = self.observe()
-        reward, env_changed = self.compute_reward(response, action)
+        reward, reward_info = self.compute_reward(response, action)
 
-        if env_changed and not self.done:
+        if reward_info["env_changed"] and not self.done:
             response = self.observe()
 
         self._update_pose(response.metadata)
 
-        return self.form_agent_observation(response), reward, self.done, {}
+        return self.form_agent_observation(response), reward, self.done, reward_info
 
     def observe(self):
         """ Observe state. """
@@ -338,7 +363,7 @@ class TesseGym(GymEnv):
         if self.relative_pose[2] < -np.pi:
             self.relative_pose[2] = self.relative_pose[2] % np.pi
         elif self.relative_pose[2] > np.pi:
-            self.relative_pose[2] = self.relative_pose[2] % (-1*np.pi)
+            self.relative_pose[2] = self.relative_pose[2] % (-1 * np.pi)
 
     @staticmethod
     def get_2d_rotation_mtrx(rad):
@@ -352,8 +377,7 @@ class TesseGym(GymEnv):
                 [[cos(rad) -sin(rad)]
                  [sin(rad)  cos(rad)]]
         """
-        return np.array([[np.cos(rad), -1*np.sin(rad)],
-                         [np.sin(rad),    np.cos(rad)]])
+        return np.array([[np.cos(rad), -1 * np.sin(rad)], [np.sin(rad), np.cos(rad)]])
 
     def _get_agent_position(self, agent_metadata):
         """ Get the agent's position from metadata.
@@ -386,11 +410,11 @@ class TesseGym(GymEnv):
                 euler angles.
         """
         root = ET.fromstring(agent_metadata)
-        x = float(root.find('quaternion').attrib['x'])
-        y = float(root.find('quaternion').attrib['y'])
-        z = float(root.find('quaternion').attrib['z'])
-        w = float(root.find('quaternion').attrib['w'])
-        return Rotation((x, y, z, w)).as_euler('zxy') if as_euler else (x, y, z, w)
+        x = float(root.find("quaternion").attrib["x"])
+        y = float(root.find("quaternion").attrib["y"])
+        z = float(root.find("quaternion").attrib["z"])
+        w = float(root.find("quaternion").attrib["w"])
+        return Rotation((x, y, z, w)).as_euler("zxy") if as_euler else (x, y, z, w)
 
     @staticmethod
     def _read_position(pos):

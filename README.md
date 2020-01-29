@@ -3,12 +3,16 @@
 Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
 
 
+Navigation | Treasure Hunt
+:----------:|:---------------:
+![](docs/hunt-1.gif) | ![](docs/nav-1.gif)
+
 ## Installation
 
 ### From Source
 Using [Anaconda](https://www.anaconda.com/distribution/#download-section) or [miniconda](https://docs.conda.io/en/latest/miniconda.html) is highly recommended. Python 3.6 is required.
 
-1. Clone this repository
+1. Clone this Repository
 ```sh
 git clone git@github.mit.edu:TESS/tesse-gym.git
 cd tesse-gym
@@ -41,31 +45,52 @@ cd ../../tesse-gym
 python setup.py install
 ```
 
-## Getting started
+## Getting Started
 
-This package provides environments for the following tasks:
+### Treasure Hunt Training
 
-### 1. Treasure Hunt
+Treasures (yellow cubes) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. The agent acts on a first-person RGB, depth, and semantic segmentation images as well as pose.
 
-#### Objective 
-Treasures (yellow cubes) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. 
+See the [example notebook](notebooks/stable-baselines-ppo.ipynb) to get started.
 
-#### Observation space
-The agent acts on a first-person RGB image. We may add depth for the challange and provide a semantic segmentation model.
+### Evaluation
 
-See the [example notebook](notebooks/treasure-hunt-training.ipynb) to get started.
+To evaluate an agent:
 
-### 2. Navigation
+1. Update the TESSE build path in `./evaluation/config/treasure-hunt-challenge.yaml`
+
+2. Define the agent in `./baselines/agents.py`
+
+3. Add a configuration file to `./baselines/config`
+
+4. Edit `run_treasure_hunt_eval.sh` to include the following
+
+```sh
+python eval.py --env-config config/treasure-hunt-challenge.yaml --agent-config YOUR_CONFIG
+```  
+  
+#### Evaluate the [Example Notebook](notebooks/stable-baselines-ppo.ipynb) Agent
+
+To run this evaluation, make sure that:
+
+1. TESSE path from step 1 is correct.
+
+2. You have the proper weight file, `./baselines/config/stable-baselines-ppo-1.pkl`. If your on the LLAN, the weight file can be found at `//group104/users/RavichandranZachary/public/tess/icra-2020-ws/rl-models/stable-baselines-ppo-1.pkl`
+
+Then, run the evaluation script 
+
+```sh 
+./run_treasure_hunt_eval.sh
+```
+
+
+## Other Tasks
+
+### Navigation
 
 The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
 
-
-Navigation | Treasure Hunt
-:----------:|:---------------:
-![](docs/nav-1.gif) | ![](docs/hunt-1.gif)
-
-
-### New tasks
+### New Tasks
 At a minimum, a new task will inherit `tess_gym.TesseGym` and impliment the following:
 
 ```python
@@ -80,7 +105,6 @@ class CustomTask(TesseGym):
     def compute_reward(self, observation, action):
         pass
 ```
-  
 
 ### Disclaimer
 

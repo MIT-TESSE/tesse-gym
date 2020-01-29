@@ -19,11 +19,11 @@
 # this work.
 ###################################################################################################
 
-from .tesse_gym import TesseGym
 import defusedxml.ElementTree as ET
 from gym import spaces
 from tesse.msgs import Transform
 
+from .tesse_gym import TesseGym
 
 class Navigation(TesseGym):
     @property
@@ -57,6 +57,7 @@ class Navigation(TesseGym):
 
         Returns:
             float: Computed reward.
+            dict: Empty dictionary as required by `step`
         """
         reward = 0.0
         if action == 0:
@@ -77,4 +78,4 @@ class Navigation(TesseGym):
             reward -= 1.0  # Reward for colliding
             self.done = True  # If colliding, the scenario ends
 
-        return reward
+        return reward, {}
