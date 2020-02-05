@@ -7,5 +7,9 @@ class Benchmark:
     STEP_RATE = 5
 
     def evaluate(self, agent):
-        raise NotImplementedError
+        """ Evaluate agent.
 
+        Args:
+            agent (tesse_gym.eval.agent.Agent): Agent to be evaluated.
+        """
+        raise NotImplementedError
