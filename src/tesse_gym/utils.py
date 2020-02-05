@@ -118,7 +118,7 @@ def _adjust_camera_params(
     )
 
 
-def _adjust_camera_position(tesse_gym, camera, x=0, y=0, z=0):
+def _adjust_camera_position(tesse_gym, camera, x=-0.05, y=0, z=0):
     """ Set gym environment camera position.
 
     Args:

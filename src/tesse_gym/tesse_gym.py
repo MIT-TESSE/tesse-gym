@@ -153,6 +153,7 @@ class TesseGym(GymEnv):
 
         # if specified, set step mode parameters
         self.step_mode = False
+        self.step_rate = step_rate  # TODO find cleaner way to handle this
         if step_rate > 0:
             self.env.request(SetFrameRate(step_rate))
             self.step_mode = True
@@ -239,7 +240,7 @@ class TesseGym(GymEnv):
         reward, reward_info = self.compute_reward(response, action)
 
         if reward_info["env_changed"] and not self.done:
-            response = self.observe()
+            response = self.get_synced_observation()
 
         self._update_pose(response.metadata)
 
@@ -277,6 +278,31 @@ class TesseGym(GymEnv):
         """ Kill simulation if running. """
         if self.launch_tesse:
             self.proc.kill()
+
+    def get_synced_observation(self):
+        """ Get observation synced with sim time. """
+        if self.launch_tesse:
+            response = self.observe()
+        else:
+            self.advance_game_time(1)  # advance game time to capture env changes
+            while True:
+                response = self.observe()
+                t1 = float(
+                    ET.fromstring(self.continuous_controller.last_metadata)
+                    .find("time")
+                    .text
+                )
+                t2 = float(ET.fromstring(response.metadata).find("time").text)
+                timediff = np.round(t1 - t2, 2)
+
+                # if observation is late, query until image server catches up.
+                if timediff < 1 / self.step_rate:
+                    break
+                else:
+                    response = (
+                        self.observe()
+                    )  # TODO better way, maybe udp broadcast from image server?
+        return response
 
     def form_agent_observation(self, scene_observation):
         """ Form agent's observation from a part

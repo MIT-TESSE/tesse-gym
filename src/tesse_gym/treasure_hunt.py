@@ -19,7 +19,6 @@
 # this work.
 ###################################################################################################
 
-from enum import Enum
 import time
 
 import defusedxml.ElementTree as ET
@@ -35,21 +34,14 @@ from tesse.msgs import (
     ObjectsRequest,
     Respawn,
     SpawnObjectRequest,
-    ObjectType,
     ObjectSpawnMethod,
     RemoveObjectsRequest,
 )
 
 
-class HuntMode(Enum):
-    SINGLE = 0
-    MULTIPLE = 1
-
-
 class TreasureHunt(TesseGym):
-    # TARGET_COLOR = (245, 231, 50)
-    TARGET_COLOR = (10, 138, 80)  # for tesse v5.1 and above
-    CAMERA_FOV = 45
+    TARGET_COLOR = (10, 138, 80)
+    CAMERA_FOV = 60
 
     def __init__(
         self,
@@ -62,10 +54,10 @@ class TreasureHunt(TesseGym):
         success_dist: float = 2,
         restart_on_collision: bool = False,
         init_hook: callable = None,
-        hunt_mode: HuntMode = HuntMode.MULTIPLE,
         target_found_reward: int = 1,
         continuous_control: bool = False,
         launch_tesse: bool = True,
+        n_target_types: int = 1,
     ):
         """ Initialize the TESSE treasure hunt environment.
 
@@ -86,6 +78,7 @@ class TreasureHunt(TesseGym):
                 agent. False to use discrete transforms.
             launch_tesse (bool): True to start tesse instance. Otherwise, assume another
                 instance is running.
+            n_target_types (int): Number of target types available to spawn.
         """
         super().__init__(
             environment_file,
@@ -102,8 +95,8 @@ class TreasureHunt(TesseGym):
         self.max_steps = max_steps
         self.restart_on_collision = restart_on_collision
         self.target_found_reward = target_found_reward
-        self.hunt_mode = hunt_mode
         self.n_found_targets = 0
+        self.n_target_types = n_target_types
 
     @property
     def action_space(self):
@@ -141,7 +134,7 @@ class TreasureHunt(TesseGym):
 
         for i in range(self.n_targets):
             self.env.request(
-                SpawnObjectRequest(ObjectType.CUBE, ObjectSpawnMethod.RANDOM)
+                SpawnObjectRequest(i % self.n_target_types, ObjectSpawnMethod.RANDOM)
             )
 
         if self.step_mode:
@@ -201,7 +194,7 @@ class TreasureHunt(TesseGym):
         """
         targets = self.env.request(ObjectsRequest())
         agent_data = observation
-        reward_info = {"env_changed": True, "collision": False, "n_found_targets": 0}
+        reward_info = {"env_changed": False, "collision": False, "n_found_targets": 0}
 
         # compute agent's distance from targets
         agent_position = self._get_agent_position(agent_data.metadata)
@@ -218,23 +211,14 @@ class TreasureHunt(TesseGym):
             )
 
             if len(found_targets):
+                self.n_found_targets += len(found_targets)
+                reward += self.target_found_reward * len(found_targets)
+                self.env.request(RemoveObjectsRequest(ids=found_targets))
+                reward_info["env_changed"] = True
                 reward_info["n_found_targets"] += len(found_targets)
-                # if in `MULTIPLE` mode, remove found targets
-                if self.hunt_mode is HuntMode.MULTIPLE:
-                    self.n_found_targets += len(found_targets)
-                    reward += self.target_found_reward * len(found_targets)
-                    self.env.request(RemoveObjectsRequest(ids=found_targets))
-                    reward_info["env_changed"] = True
 
-                    # if all targets have been found, restart the  episode
-                    if self.n_found_targets == self.n_targets:
-                        self._success_action()
-                        self.done = True
-
-                # if in `SINGLE` mode, reset the episode
-                elif self.hunt_mode == HuntMode.SINGLE:
-                    self._success_action()  # signal task was successful
-                    reward += self.target_found_reward
+                # if all targets have been found, restart the episode
+                if self.n_found_targets == self.n_targets:
                     self.done = True
 
         self.steps += 1
@@ -313,12 +297,6 @@ class TreasureHunt(TesseGym):
             )
         )
         return np.rad2deg(target_orientation).reshape(-1)
-
-    def _success_action(self):
-        """ Simple indicator that the agent has achieved the goal. """
-        for i in range(0, 360, 360 // 5):
-            self.env.send(self.TransformMessage(0, 0, 360 // 5))
-            time.sleep(0.1)
 
     @staticmethod
     def _collision(metadata):
