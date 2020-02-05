@@ -25,6 +25,7 @@ from tesse.msgs import Transform
 
 from .tesse_gym import TesseGym
 
+
 class Navigation(TesseGym):
     @property
     def action_space(self):
