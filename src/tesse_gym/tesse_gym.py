@@ -21,18 +21,19 @@
 
 import atexit
 import subprocess
-from collections import namedtuple
 import time
+from collections import namedtuple
 
-import numpy as np
 import defusedxml.ElementTree as ET
+import numpy as np
+from gym import Env as GymEnv
+from gym import logger, spaces
 from scipy.spatial.transform import Rotation
-from gym import Env as GymEnv, logger, spaces
 
 from tesse.env import Env
 from tesse.msgs import *
-from .continuous_control import ContinuousController
 
+from .continuous_control import ContinuousController
 
 NetworkConfig = namedtuple(
     "NetworkConfig",
@@ -184,9 +185,8 @@ class TesseGym(GymEnv):
             init_hook(self)
 
         # track relative pose throughout episode
-        self.initial_pose = np.zeros(
-            (3,)
-        )  # (x, z, yaw) pose from starting point in agent frame
+        # (x, z, yaw) pose from starting point in agent frame
+        self.initial_pose = np.zeros((3,))
         self.initial_rotation = np.eye(2)
         self.relative_pose = np.zeros((3,))
 
@@ -301,7 +301,7 @@ class TesseGym(GymEnv):
                 else:
                     response = (
                         self.observe()
-                    )  # TODO better way, maybe udp broadcast from image server?
+                    )
         return response
 
     def form_agent_observation(self, scene_observation):

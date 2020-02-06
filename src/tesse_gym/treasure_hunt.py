@@ -19,24 +19,23 @@
 # this work.
 ###################################################################################################
 
-import time
-
 import defusedxml.ElementTree as ET
 import numpy as np
 from gym import spaces
 
-from .tesse_gym import TesseGym, NetworkConfig
 from tesse.msgs import (
     Camera,
-    DataRequest,
-    Compression,
     Channels,
+    Compression,
+    DataRequest,
+    ObjectSpawnMethod,
     ObjectsRequest,
+    RemoveObjectsRequest,
     Respawn,
     SpawnObjectRequest,
-    ObjectSpawnMethod,
-    RemoveObjectsRequest,
 )
+
+from .tesse_gym import NetworkConfig, TesseGym
 
 
 class TreasureHunt(TesseGym):
@@ -124,7 +123,7 @@ class TreasureHunt(TesseGym):
         """ Reset the sim, randomly respawn agent and targets.
 
         Returns:
-            np.ndarray: The observed image. """
+            np.ndarray: Agent's observation. """
         self.done = False
         self.steps = 0
         self.n_found_targets = 0
@@ -150,27 +149,14 @@ class TreasureHunt(TesseGym):
         Args:
             action (action_space): Make agent take `action`.
         """
-        if action == 0:
+        if action == 0:  # move forward 0.5m
             self.transform(0, 0.5, 0)
         elif action == 1:
-            self.transform(0, 0, 8)
+            self.transform(0, 0, 8)  # turn right 8 degrees
         elif action == 2:
-            self.transform(0, 0, -8)
+            self.transform(0, 0, -8)  # turn left 8 degrees
         elif action != 3:
             raise ValueError(f"Unexpected action {action}")
-
-    def forward_transform(self, x, z, y):
-        """ Move forward in 5 small increments. This a bit of a
-        hack to accommodate thin colliders, the small steps ensure
-        the agent doesn't pass through them. """
-        x /= 5.0
-        z /= 5.0
-        y /= 5.0
-
-        for _ in range(4):
-            self.transform(x, z, y)
-            time.sleep(0.02)  # so messages don't get dropped
-        self.transform(x, z, y)
 
     def compute_reward(self, observation, action):
         """ Compute reward consisting of
@@ -181,12 +167,12 @@ class TreasureHunt(TesseGym):
 
         Args:
             observation (DataResponse): Images and metadata used to
-            compute the reward.
+                compute the reward.
             action (action_space): Action taken by agent.
 
         Returns:
             Tuple[float, dict[str, [bool, int]]
-                Computed reward.
+                Reward,
                 Dictionary with the following keys
                     - env_changed: True if agent changed the environment.
                     - collision: True if there was a collision
@@ -210,6 +196,7 @@ class TreasureHunt(TesseGym):
                 agent_position, target_position, target_ids, agent_data
             )
 
+            # if targets are found, update reward and related episode info
             if len(found_targets):
                 self.n_found_targets += len(found_targets)
                 reward += self.target_found_reward * len(found_targets)
