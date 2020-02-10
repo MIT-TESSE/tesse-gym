@@ -22,6 +22,7 @@
 import atexit
 import subprocess
 import time
+from typing import Any, Dict, Tuple
 
 import defusedxml.ElementTree as ET
 import numpy as np
@@ -59,7 +60,7 @@ class TesseGym(GymEnv):
         init_hook: callable = None,
         continuous_control: bool = False,
         launch_tesse: bool = True,
-    ):
+    ) -> None:
         """
         Args:
             build_path (str): Path to TESS executable.
@@ -147,14 +148,14 @@ class TesseGym(GymEnv):
         self.initial_rotation = np.eye(2)
         self.relative_pose = np.zeros((3,))
 
-    def advance_game_time(self, n_steps):
+    def advance_game_time(self, n_steps: int) -> None:
         """ Advance game time in step mode by sending step forces of 0 to TESSE. """
         for i in range(n_steps):
             self.env.send(
                 StepWithForce(0, 0, 0)
             )  # move game time to update observation
 
-    def transform(self, x, z, y):
+    def transform(self, x: float, z: float, y: float) -> None:
         """ Apply desired transform to agent. If in continuous mode, the
         agent is moved via force commands. Otherwise, a discrete transform
         is applied.
@@ -174,7 +175,7 @@ class TesseGym(GymEnv):
         """ Space observed by the agent. """
         return spaces.Box(0, 255, dtype=np.uint8, shape=self.shape)
 
-    def step(self, action):
+    def step(self, action: int) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """ Take a training step consisting of an action, observation, and
         reward.
 
@@ -203,12 +204,12 @@ class TesseGym(GymEnv):
 
         return self.form_agent_observation(response), reward, self.done, reward_info
 
-    def observe(self):
+    def observe(self) -> DataResponse:
         """ Observe state. """
         cameras = [(Camera.RGB_LEFT, Compression.OFF, Channels.THREE)]
         return self.env.request(DataRequest(metadata=True, cameras=cameras))
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         """ Reset environment and respawn agent.
 
         Returns:
@@ -220,7 +221,7 @@ class TesseGym(GymEnv):
         self._init_pose()
         return self.form_agent_observation(self.observe())
 
-    def render(self, mode="rgb_array"):
+    def render(self, mode: str = "rgb_array") -> np.ndarray:
         """ Get observation.
 
         Args:
@@ -236,8 +237,15 @@ class TesseGym(GymEnv):
         if self.launch_tesse:
             self.proc.kill()
 
-    def get_synced_observation(self):
-        """ Get observation synced with sim time. """
+    def get_synced_observation(self) -> DataResponse:
+        """ Get observation synced with sim time.
+
+        Compares current sim time to latest image message and queries
+        new images until they are up to date.
+
+        Returns:
+            DataResponse
+        """
         if self.launch_tesse:
             response = self.observe()
         else:
@@ -259,8 +267,10 @@ class TesseGym(GymEnv):
                     response = self.observe()
         return response
 
-    def form_agent_observation(self, scene_observation):
-        """ Form agent's observation from a part
+    def form_agent_observation(self, scene_observation: DataResponse) -> np.ndarray:
+        """ Create agent's observation from `DataResponse` message.
+
+        Creates agent's observation from a part
         of all of the information received from TESSE.
         This is useful if some information is required to compute
         a reward (e.g. segmentation for finding targets), but
@@ -288,7 +298,9 @@ class TesseGym(GymEnv):
         """
         raise NotImplementedError
 
-    def compute_reward(self, observation, action):
+    def compute_reward(
+        self, observation: DataResponse, action: int
+    ) -> Tuple[float, Dict[str, Any]]:
         """ Compute the reward based on the agent's observation and action.
 
         Args:
@@ -297,12 +309,16 @@ class TesseGym(GymEnv):
             action (action_space): Action taken by agent.
 
         Returns:
-            float: Computed reward.
+            Tuple[float, Dict[str, Any]]: Computed reward and dictionary with task relevant information
         """
         raise NotImplementedError
 
-    def get_pose(self):
-        """ Get agent pose relative to start location. """
+    def get_pose(self) -> np.ndarray:
+        """ Get agent pose relative to start location.
+
+        Returns:
+            np.ndarray: (3,) array containing (x, z, heading). Heading is in degrees from [-180, 180].
+        """
         return self.relative_pose
 
     def _init_pose(self):
@@ -320,7 +336,7 @@ class TesseGym(GymEnv):
 
         self.relative_pose = np.zeros((3,))
 
-    def _update_pose(self, metadata):
+    def _update_pose(self, metadata: str):
         """ Update current pose.
 
         Args:
@@ -347,7 +363,7 @@ class TesseGym(GymEnv):
             self.relative_pose[2] = self.relative_pose[2] % (-1 * np.pi)
 
     @staticmethod
-    def get_2d_rotation_mtrx(rad):
+    def get_2d_rotation_mtrx(rad: float) -> np.ndarray:
         """ Get 2d rotation matrix.
 
         Args:
@@ -360,7 +376,7 @@ class TesseGym(GymEnv):
         """
         return np.array([[np.cos(rad), -1 * np.sin(rad)], [np.sin(rad), np.cos(rad)]])
 
-    def _get_agent_position(self, agent_metadata):
+    def _get_agent_position(self, agent_metadata: str) -> np.ndarray:
         """ Get the agent's position from metadata.
 
         Args:
@@ -378,7 +394,7 @@ class TesseGym(GymEnv):
         )
 
     @staticmethod
-    def _get_agent_rotation(agent_metadata, as_euler=True):
+    def _get_agent_rotation(agent_metadata: str, as_euler: bool = True) -> np.ndarray:
         """ Get the agent's rotation.
 
         Args:
@@ -387,8 +403,7 @@ class TesseGym(GymEnv):
                 Otherwise, return quaternion.
 
         Returns:
-            np.ndarray: shape (3,) containing (z, x, y)
-                euler angles.
+            np.ndarray: shape (3,) array containing (z, x, y) euler angles.
         """
         root = ET.fromstring(agent_metadata)
         x = float(root.find("quaternion").attrib["x"])
@@ -398,14 +413,14 @@ class TesseGym(GymEnv):
         return Rotation((x, y, z, w)).as_euler("zxy") if as_euler else (x, y, z, w)
 
     @staticmethod
-    def _read_position(pos):
+    def _read_position(pos: ET.Element) -> np.ndarray:
         """ Get (x, y, z) coordinates from metadata.
 
         Args:
             pos (ET.Element): XML element from metadata string.
 
         Returns:
-            np.ndarray: shape (3, ), or (x, y, z) positions.
+            np.ndarray: shape (3, ), of (x, y, z) positions.
         """
         return np.array(
             [pos.attrib["x"], pos.attrib["y"], pos.attrib["z"]], dtype=np.float32

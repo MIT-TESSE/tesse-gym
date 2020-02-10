@@ -19,13 +19,23 @@
 # this work.
 ###################################################################################################
 
+from typing import Dict, Tuple, Union, List
 import defusedxml.ElementTree as ET
 import numpy as np
 from gym import spaces
 
-from tesse.msgs import (Camera, Channels, Compression, DataRequest,
-                        ObjectSpawnMethod, ObjectsRequest,
-                        RemoveObjectsRequest, Respawn, SpawnObjectRequest)
+from tesse.msgs import (
+    Camera,
+    Channels,
+    Compression,
+    DataRequest,
+    DataResponse,
+    ObjectSpawnMethod,
+    ObjectsRequest,
+    RemoveObjectsRequest,
+    Respawn,
+    SpawnObjectRequest,
+)
 from tesse_gym.core.tesse_gym import TesseGym
 from tesse_gym.core.utils import NetworkConfig
 
@@ -90,19 +100,19 @@ class GoSeek(TesseGym):
         self.n_target_types = n_target_types
 
     @property
-    def action_space(self):
+    def action_space(self) -> spaces.Discrete:
         """ Actions available to agent. """
         return spaces.Discrete(4)
 
     @property
-    def observation_space(self):
+    def observation_space(self) -> spaces.Box:
         """ Space observed by the agent """
-        return spaces.Box(0, 255, dtype=np.uint8, shape=self.shape)
+        return spaces.Box(-np.Inf, np.Inf, dtype=np.uint8, shape=self.shape)
 
-    def observe(self):
+    def observe(self) -> DataResponse:
         """ Observe the state.
 
-        Returns
+        Returns:
             DataResponse: The `DataResponse` object. """
         cameras = [
             (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
@@ -111,7 +121,7 @@ class GoSeek(TesseGym):
         agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
         return agent_data
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         """ Reset the sim, randomly respawn agent and targets.
 
         Returns:
@@ -135,7 +145,7 @@ class GoSeek(TesseGym):
 
         return self.form_agent_observation(self.observe())
 
-    def apply_action(self, action):
+    def apply_action(self, action: int) -> None:
         """ Make agent take the specified action.
 
         Args:
@@ -150,8 +160,12 @@ class GoSeek(TesseGym):
         elif action != 3:
             raise ValueError(f"Unexpected action {action}")
 
-    def compute_reward(self, observation, action):
-        """ Compute reward consisting of
+    def compute_reward(
+        self, observation: DataResponse, action: int
+    ) -> Tuple[float, Dict[str, Union[int, bool]]]:
+        """ Compute reward.
+
+        Reward consists of:
             - Reward if the agent has completed its task
               of being within `success_dist` of a target in its FOV
                and has given the 'done' signal (action == 3).
@@ -213,8 +227,12 @@ class GoSeek(TesseGym):
         return reward, reward_info
 
     def get_found_targets(
-        self, agent_position, target_position, target_ids, agent_data
-    ):
+        self,
+        agent_position: np.ndarray,
+        target_position: np.ndarray,
+        target_ids: np.ndarray,
+        agent_data: DataResponse,
+    ) -> List[int]:
         """ Get targets that are within `self.success_dist` of agent and in FOV.
 
         Args:
@@ -253,7 +271,11 @@ class GoSeek(TesseGym):
         return found_targets
 
     @staticmethod
-    def get_target_orientation(agent_orientation, target_positions, agent_position):
+    def get_target_orientation(
+        agent_orientation: float,
+        target_positions: np.ndarray,
+        agent_position: np.ndarray,
+    ) -> np.ndarray:
         """ Get orientation of targets relative to agents given the agent position, orientation,
         and target positions.
 
@@ -278,7 +300,7 @@ class GoSeek(TesseGym):
         return np.rad2deg(target_orientation).reshape(-1)
 
     @staticmethod
-    def _collision(metadata):
+    def _collision(metadata: str) -> bool:
         """ Check for collision with environment.
 
         Args:
@@ -291,13 +313,17 @@ class GoSeek(TesseGym):
             ET.fromstring(metadata).find("collision").attrib["status"].lower() == "true"
         )
 
-    def _get_target_id_and_positions(self, target_metadata):
+    def _get_target_id_and_positions(
+        self, target_metadata: str
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """ Get target positions from metadata.
+
         Args:
             target_metadata (str): Metadata string.
+
         Returns:
-            np.ndarray: shape (n, 3) of (x, y, z) positions for the
-                n targets.
+            Tuple[np.ndarray, np.array]: shape (n, 3) of (x, y, z) target positions and
+                shape (n,) target ids.
         """
         position, obj_ids = [], []
         for obj in ET.fromstring(target_metadata).findall("object"):
@@ -316,11 +342,11 @@ class MultiModalGoSeek(GoSeek):
     WALL_CLS = 2
 
     @property
-    def observation_space(self):
+    def observation_space(self) -> spaces.Box:
         """ This must be defined for custom observations. """
         return spaces.Box(np.Inf, np.Inf, shape=(240 * 320 * 5 + 3,))  # imgs + pose
 
-    def form_agent_observation(self, tesse_data):
+    def form_agent_observation(self, tesse_data: DataResponse) -> np.ndarray:
         """ Create the agent's observation from a TESSE data response.
 
         Args:
@@ -347,7 +373,7 @@ class MultiModalGoSeek(GoSeek):
             raise ValueError("Pose is out of observation space")
         return np.concatenate((observation, pose))
 
-    def observe(self):
+    def observe(self) -> DataResponse:
         """ Get observation data from TESSE.
 
         Returns:
