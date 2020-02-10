@@ -108,7 +108,7 @@ class ContinuousController:
         pos_error_rate_gain=35,
         yaw_error_gain=1.6,
         yaw_error_rate_gain=0.27,
-        udp_port=9004
+        udp_port=9004,
     ):
         """ Initialize PD controller.
 
@@ -217,10 +217,16 @@ class ContinuousController:
         error[2] = (error[2] + np.pi) % (2 * np.pi) - np.pi  # wrap to pi
 
         current_rate = np.array(
-            [data['velocity']['x_dot'], data['velocity']['z_dot'], data['angular_velocity']['y_ang_dot']]
+            [
+                data["velocity"]["x_dot"],
+                data["velocity"]["z_dot"],
+                data["angular_velocity"]["y_ang_dot"],
+            ]
         )
 
-        return np.all(np.abs(error) < self.threshold) and np.all(np.abs(current_rate) < self.rate_threshold)
+        return np.all(np.abs(error) < self.threshold) and np.all(
+            np.abs(current_rate) < self.rate_threshold
+        )
 
     def control(self, data):
         """ Applies PD-control to move to the goal point.

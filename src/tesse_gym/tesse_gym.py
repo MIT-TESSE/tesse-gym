@@ -256,9 +256,7 @@ class TesseGym(GymEnv):
                 if timediff < 1 / self.step_rate:
                     break
                 else:
-                    response = (
-                        self.observe()
-                    )
+                    response = self.observe()
         return response
 
     def form_agent_observation(self, scene_observation):
