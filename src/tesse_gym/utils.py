@@ -19,7 +19,53 @@
 # this work.
 ###################################################################################################
 
+from collections import namedtuple
+
 from tesse.msgs import Camera, SetCameraParametersRequest, SetCameraPositionRequest
+
+
+NetworkConfig = namedtuple(
+    "NetworkConfig",
+    [
+        "simulation_ip",
+        "own_ip",
+        "position_port",
+        "metadata_port",
+        "image_port",
+        "step_port",
+    ],
+    defaults=("localhost", "localhost", 9000, 9001, 9002, 9005),
+)
+
+
+def get_network_config(
+    simulation_ip="localhost",
+    own_ip="localhost",
+    base_port=9000,
+    worker_id=0,
+    n_ports=6,
+):
+    """ Get a TESSE network configuration instance.
+
+    Args:
+        simulation_ip (str): TESSE IP address.
+        own_ip (str): Local IP address.
+        base_port (int): Starting connection port. It is assumed the rest of the ports
+            follow sequentially.
+        worker_id (int): Worker ID of this Gym instance. Ports are staggered by ID.
+        n_ports (int): Number of ports allocated to each TESSE instance.
+
+    Returns:
+        NetworkConfig: NetworkConfig object.
+    """
+    return NetworkConfig(
+        simulation_ip=simulation_ip,
+        own_ip=own_ip,
+        position_port=base_port + worker_id * n_ports,
+        metadata_port=base_port + worker_id * n_ports + 1,
+        image_port=base_port + worker_id * n_ports + 2,
+        step_port=base_port + worker_id * n_ports + 5,
+    )
 
 
 def set_multiple_camera_params(

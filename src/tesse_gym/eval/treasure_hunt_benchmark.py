@@ -17,7 +17,7 @@ class TreasureHuntBenchmark(Benchmark):
         scenes: List[int],
         episode_length: List[int],
         n_targets: List[int],
-        environment_file: str,
+        build_path: str,
         success_dist: int,
         launch_tesse: bool,
         random_seeds: Optional[List[bool]] = None,
@@ -28,7 +28,7 @@ class TreasureHuntBenchmark(Benchmark):
             scenes (List[int]): Scene IDs.
             episode_length (List[int]): Episode length.
             n_targets (List[int]): Number of targets.
-            environment_file (str): Path to TESSE build.
+            build_path (str): Path to TESSE build.
             success_dist (int): Maximum distance from target to be considered found.
             launch_tesse (bool): True to spawn TESSE. Otherwise assume existing instance.
             random_seeds (Optional(List[int])): Optional random seeds for each episode.
@@ -39,7 +39,7 @@ class TreasureHuntBenchmark(Benchmark):
         self.random_seeds = random_seeds
         self.n_targets = n_targets
         self.env = MultiModalandPose(
-            environment_file=environment_file,
+            build_path=build_path,
             scene_id=self.scenes[0],
             success_dist=success_dist,
             n_targets=n_targets[0],

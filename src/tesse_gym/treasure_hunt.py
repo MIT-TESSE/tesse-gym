@@ -44,7 +44,7 @@ class TreasureHunt(TesseGym):
 
     def __init__(
         self,
-        environment_file: str,
+        build_path: str,
         network_config: NetworkConfig = NetworkConfig(),
         scene_id: int = None,
         max_steps: int = 300,
@@ -61,7 +61,7 @@ class TreasureHunt(TesseGym):
         """ Initialize the TESSE treasure hunt environment.
 
         Args:
-            environment_file (str): Path to TESSE executable.
+            build_path (str): Path to TESSE executable.
             network_config (NetworkConfig): Network configuration parameters.
             scene_id (int): Scene id to load.
             max_steps (int): Maximum number of steps in the episode.
@@ -80,7 +80,7 @@ class TreasureHunt(TesseGym):
             n_target_types (int): Number of target types available to spawn.
         """
         super().__init__(
-            environment_file,
+            build_path,
             network_config,
             scene_id,
             max_steps,
