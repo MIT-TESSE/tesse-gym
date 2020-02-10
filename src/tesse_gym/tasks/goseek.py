@@ -23,22 +23,14 @@ import defusedxml.ElementTree as ET
 import numpy as np
 from gym import spaces
 
-from tesse.msgs import (
-    Camera,
-    Channels,
-    Compression,
-    DataRequest,
-    ObjectSpawnMethod,
-    ObjectsRequest,
-    RemoveObjectsRequest,
-    Respawn,
-    SpawnObjectRequest,
-)
-
-from .tesse_gym import NetworkConfig, TesseGym
+from tesse.msgs import (Camera, Channels, Compression, DataRequest,
+                        ObjectSpawnMethod, ObjectsRequest,
+                        RemoveObjectsRequest, Respawn, SpawnObjectRequest)
+from tesse_gym.core.tesse_gym import TesseGym
+from tesse_gym.core.utils import NetworkConfig
 
 
-class TreasureHunt(TesseGym):
+class GoSeek(TesseGym):
     TARGET_COLOR = (10, 138, 80)
     CAMERA_FOV = 60
 
@@ -314,7 +306,7 @@ class TreasureHunt(TesseGym):
         return np.array(obj_ids, dtype=np.uint32), np.array(position, dtype=np.float32)
 
 
-class MultiModalandPose(TreasureHunt):
+class MultiModalGoSeek(GoSeek):
     """ Define a custom TESSE gym environment to provide RGB, depth,
     segmentation, and pose data.
     """
