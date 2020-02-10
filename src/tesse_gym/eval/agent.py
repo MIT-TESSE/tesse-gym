@@ -3,9 +3,12 @@ import numpy as np
 
 
 class Agent:
-    """ Abstract class to handle """
+    """ Abstract class for define agents that act within `TesseGym`.
 
-    def act(self, observation):
+    Designed to simplifying agent benchmarking.
+    """
+
+    def act(self, observation: np.ndarray) -> int:
         """ Act upon an environment observation.
 
         Args:
@@ -16,6 +19,6 @@ class Agent:
         """
         raise NotImplementedError
 
-    def reset(self):
+    def reset(self) -> None:
         """ Called when environment resets. """
         raise NotImplementedError
