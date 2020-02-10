@@ -21,9 +21,9 @@
 
 import defusedxml.ElementTree as ET
 from gym import spaces
-from tesse.msgs import Transform
 
-from .tesse_gym import TesseGym
+from tesse.msgs import Transform
+from tesse_gym.core.tesse_gym import TesseGym
 
 
 class Navigation(TesseGym):

@@ -1,17 +1,16 @@
 """ Treasure hunt evaluation """
 from typing import Dict, List, Optional
 
-from ..treasure_hunt import MultiModalandPose
 from tesse.msgs import *
+from tesse_gym.tasks.goseek import MultiModalGoSeek
 
-from .benchmark import Benchmark
 from .agent import Agent
-
+from .benchmark import Benchmark
 
 EVALUATION_METRICS = ["found_targets", "precision", "recall", "collisions", "steps"]
 
 
-class TreasureHuntBenchmark(Benchmark):
+class GoSeekBenchmark(Benchmark):
     def __init__(
         self,
         scenes: List[int],
@@ -38,7 +37,7 @@ class TreasureHuntBenchmark(Benchmark):
         self.episode_length = episode_length
         self.random_seeds = random_seeds
         self.n_targets = n_targets
-        self.env = MultiModalandPose(
+        self.env = MultiModalGoSeek(
             build_path=build_path,
             scene_id=self.scenes[0],
             success_dist=success_dist,

@@ -19,6 +19,7 @@
 # this work.
 ###################################################################################################
 
+from typing import Dict, Tuple, Union, List
 import defusedxml.ElementTree as ET
 import numpy as np
 from gym import spaces
@@ -28,17 +29,18 @@ from tesse.msgs import (
     Channels,
     Compression,
     DataRequest,
+    DataResponse,
     ObjectSpawnMethod,
     ObjectsRequest,
     RemoveObjectsRequest,
     Respawn,
     SpawnObjectRequest,
 )
+from tesse_gym.core.tesse_gym import TesseGym
+from tesse_gym.core.utils import NetworkConfig
 
-from .tesse_gym import NetworkConfig, TesseGym
 
-
-class TreasureHunt(TesseGym):
+class GoSeek(TesseGym):
     TARGET_COLOR = (10, 138, 80)
     CAMERA_FOV = 60
 
@@ -98,19 +100,19 @@ class TreasureHunt(TesseGym):
         self.n_target_types = n_target_types
 
     @property
-    def action_space(self):
+    def action_space(self) -> spaces.Discrete:
         """ Actions available to agent. """
         return spaces.Discrete(4)
 
     @property
-    def observation_space(self):
+    def observation_space(self) -> spaces.Box:
         """ Space observed by the agent """
-        return spaces.Box(0, 255, dtype=np.uint8, shape=self.shape)
+        return spaces.Box(-np.Inf, np.Inf, dtype=np.uint8, shape=self.shape)
 
-    def observe(self):
+    def observe(self) -> DataResponse:
         """ Observe the state.
 
-        Returns
+        Returns:
             DataResponse: The `DataResponse` object. """
         cameras = [
             (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
@@ -119,7 +121,7 @@ class TreasureHunt(TesseGym):
         agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
         return agent_data
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         """ Reset the sim, randomly respawn agent and targets.
 
         Returns:
@@ -143,11 +145,11 @@ class TreasureHunt(TesseGym):
 
         return self.form_agent_observation(self.observe())
 
-    def apply_action(self, action):
+    def apply_action(self, action: int) -> None:
         """ Make agent take the specified action.
 
         Args:
-            action (action_space): Make agent take `action`.
+            action (int): Make agent take `action`.
         """
         if action == 0:  # move forward 0.5m
             self.transform(0, 0.5, 0)
@@ -158,12 +160,16 @@ class TreasureHunt(TesseGym):
         elif action != 3:
             raise ValueError(f"Unexpected action {action}")
 
-    def compute_reward(self, observation, action):
-        """ Compute reward consisting of
-            - Reward if the agent has completed its task
-              of being within `success_dist` of a target in its FOV
-               and has given the 'done' signal (action == 3).
+    def compute_reward(
+        self, observation: DataResponse, action: int
+    ) -> Tuple[float, Dict[str, Union[int, bool]]]:
+        """ Compute reward.
+
+        Reward consists of:
             - Small time penalty
+            - If the agent is (1) within `success_dist`, (2) has the target in its FOV,
+                and (3) executes action 3, it receives a reward equal to the
+                number of targets found times `self.target_found_reward`
 
         Args:
             observation (DataResponse): Images and metadata used to
@@ -221,8 +227,12 @@ class TreasureHunt(TesseGym):
         return reward, reward_info
 
     def get_found_targets(
-        self, agent_position, target_position, target_ids, agent_data
-    ):
+        self,
+        agent_position: np.ndarray,
+        target_position: np.ndarray,
+        target_ids: np.ndarray,
+        agent_data: DataResponse,
+    ) -> List[int]:
         """ Get targets that are within `self.success_dist` of agent and in FOV.
 
         Args:
@@ -248,20 +258,24 @@ class TreasureHunt(TesseGym):
         # if the agent is within `success_dist` of target, can see it,
         # and gives the `found` action, count as found
         if dists.min() < self.success_dist and target_in_fov.any():
-            targets_within_dist = target_ids[dists < self.success_dist]
+            targets_in_range = target_ids[dists < self.success_dist]
             found_target_positions = target_position[dists < self.success_dist]
             agent_orientation = self._get_agent_rotation(agent_data.metadata)[-1]
-            angles_rel_agent = self.get_target_orientation(
+            target_heading_relative_agent = self.get_target_orientation(
                 agent_orientation, found_target_positions, agent_position
             )
-            found_targets = targets_within_dist[
-                np.where(angles_rel_agent < self.CAMERA_FOV)
+            found_targets = targets_in_range[
+                np.where(target_heading_relative_agent < self.CAMERA_FOV)
             ]
 
         return found_targets
 
     @staticmethod
-    def get_target_orientation(agent_orientation, target_positions, agent_position):
+    def get_target_orientation(
+        agent_orientation: float,
+        target_positions: np.ndarray,
+        agent_position: np.ndarray,
+    ) -> np.ndarray:
         """ Get orientation of targets relative to agents given the agent position, orientation,
         and target positions.
 
@@ -286,7 +300,7 @@ class TreasureHunt(TesseGym):
         return np.rad2deg(target_orientation).reshape(-1)
 
     @staticmethod
-    def _collision(metadata):
+    def _collision(metadata: str) -> bool:
         """ Check for collision with environment.
 
         Args:
@@ -299,13 +313,17 @@ class TreasureHunt(TesseGym):
             ET.fromstring(metadata).find("collision").attrib["status"].lower() == "true"
         )
 
-    def _get_target_id_and_positions(self, target_metadata):
+    def _get_target_id_and_positions(
+        self, target_metadata: str
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """ Get target positions from metadata.
+
         Args:
             target_metadata (str): Metadata string.
+
         Returns:
-            np.ndarray: shape (n, 3) of (x, y, z) positions for the
-                n targets.
+            Tuple[np.ndarray, np.array]: shape (n, 3) of (x, y, z) target positions and
+                shape (n,) target ids.
         """
         position, obj_ids = [], []
         for obj in ET.fromstring(target_metadata).findall("object"):
@@ -314,7 +332,7 @@ class TreasureHunt(TesseGym):
         return np.array(obj_ids, dtype=np.uint32), np.array(position, dtype=np.float32)
 
 
-class MultiModalandPose(TreasureHunt):
+class MultiModalGoSeek(GoSeek):
     """ Define a custom TESSE gym environment to provide RGB, depth,
     segmentation, and pose data.
     """
@@ -324,11 +342,17 @@ class MultiModalandPose(TreasureHunt):
     WALL_CLS = 2
 
     @property
-    def observation_space(self):
-        """ This must be defined for custom observations. """
-        return spaces.Box(np.Inf, np.Inf, shape=(240 * 320 * 5 + 3,))  # imgs + pose
+    def observation_space(self) -> spaces.Box:
+        """ Define an observation space for RGB, depth, segmentation, and pose.
 
-    def form_agent_observation(self, tesse_data):
+        Because Stables Baselines (the baseline PPO library) does not support dictionary spaces,
+        the observation images and pose vector will be combined into a vector. The RGB image
+        is of shape (240, 320, 3), depth and segmentation are both (240, 320), ose is (3,), thus
+        the total shape is (240 * 320 * 5 + 3).
+        """
+        return spaces.Box(np.Inf, np.Inf, shape=(240 * 320 * 5 + 3,))
+
+    def form_agent_observation(self, tesse_data: DataResponse) -> np.ndarray:
         """ Create the agent's observation from a TESSE data response.
 
         Args:
@@ -340,7 +364,10 @@ class MultiModalandPose(TreasureHunt):
         """
         eo, seg, depth = tesse_data.images
         seg = seg[..., 0].copy()  # get segmentation as one-hot encoding
-        seg[seg > (self.N_CLASSES - 1)] = self.WALL_CLS  # assign background to wall cls
+
+        # TESSE assigns areas without a material (e.g. outside windows) the maximum possible
+        # image value. It will be classified as wall.
+        seg[seg > (self.N_CLASSES - 1)] = self.WALL_CLS
         observation = np.concatenate(
             (
                 eo / 255.0,
@@ -355,7 +382,7 @@ class MultiModalandPose(TreasureHunt):
             raise ValueError("Pose is out of observation space")
         return np.concatenate((observation, pose))
 
-    def observe(self):
+    def observe(self) -> DataResponse:
         """ Get observation data from TESSE.
 
         Returns:

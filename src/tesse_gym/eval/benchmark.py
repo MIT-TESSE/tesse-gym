@@ -7,6 +7,7 @@ from .agent import Agent
 
 class Benchmark:
     """ Abstract class to handle agent evaluation """
+
     STEP_RATE = 20
 
     def evaluate(self, agent: Agent) -> Dict[str, Dict[str, float]]:
