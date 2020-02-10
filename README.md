@@ -49,39 +49,13 @@ python setup.py install
 
 ### Treasure Hunt Training
 
-Treasures (yellow cubes) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. The agent acts on a first-person RGB, depth, and semantic segmentation images as well as pose.
+Treasures (fruits) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. The agent acts on a first-person RGB, depth, and semantic segmentation images as well as relative pose from starting location.
 
 See the [example notebook](notebooks/stable-baselines-ppo.ipynb) to get started.
 
 ### Evaluation
 
-To evaluate an agent:
-
-1. Update the TESSE build path in `./evaluation/config/treasure-hunt-challenge.yaml`
-
-2. Define the agent in `./baselines/agents.py`
-
-3. Add a configuration file to `./baselines/config`
-
-4. Edit `run_treasure_hunt_eval.sh` to include the following
-
-```sh
-python eval.py --env-config config/treasure-hunt-challenge.yaml --agent-config YOUR_CONFIG
-```  
-  
-#### Evaluate the [Example Notebook](notebooks/stable-baselines-ppo.ipynb) Agent
-
-To run this evaluation, make sure that:
-
-1. TESSE path from step 1 is correct.
-
-2. You have the proper weight file, `./baselines/config/stable-baselines-ppo-1.pkl`. If your on the LLAN, the weight file can be found at `//group104/users/RavichandranZachary/public/tess/icra-2020-ws/rl-models/stable-baselines-ppo-1.pkl`
-
-Then, run the evaluation script 
-
-```sh 
-./run_treasure_hunt_eval.sh
-```
+See the [GOSEEK Challenge](https://github.mit.edu/TESS/goseek-challenge) landing page for details on evaluation and submission.
 
 
 ## Other Tasks
