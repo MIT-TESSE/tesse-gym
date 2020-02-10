@@ -24,6 +24,7 @@ import subprocess
 import time
 from typing import Any, Dict, Tuple
 
+from xml.etree.cElementTree import Element
 import defusedxml.ElementTree as ET
 import numpy as np
 from gym import Env as GymEnv
@@ -413,11 +414,11 @@ class TesseGym(GymEnv):
         return Rotation((x, y, z, w)).as_euler("zxy") if as_euler else (x, y, z, w)
 
     @staticmethod
-    def _read_position(pos: ET.Element) -> np.ndarray:
+    def _read_position(pos: Element) -> np.ndarray:
         """ Get (x, y, z) coordinates from metadata.
 
         Args:
-            pos (ET.Element): XML element from metadata string.
+            pos (Element): XML element from metadata string.
 
         Returns:
             np.ndarray: shape (3, ), of (x, y, z) positions.
