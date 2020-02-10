@@ -1,2 +1,0 @@
-name: TreasureHuntAgentV1
-weights: ./baselines/config/stable-baselines-ppo-1.pkl
