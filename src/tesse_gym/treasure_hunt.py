@@ -19,41 +19,32 @@
 # this work.
 ###################################################################################################
 
-from enum import Enum
-import time
-
 import defusedxml.ElementTree as ET
 import numpy as np
 from gym import spaces
 
-from .tesse_gym import TesseGym, NetworkConfig
 from tesse.msgs import (
     Camera,
-    DataRequest,
-    Compression,
     Channels,
+    Compression,
+    DataRequest,
+    ObjectSpawnMethod,
     ObjectsRequest,
+    RemoveObjectsRequest,
     Respawn,
     SpawnObjectRequest,
-    ObjectType,
-    ObjectSpawnMethod,
-    RemoveObjectsRequest,
 )
 
-
-class HuntMode(Enum):
-    SINGLE = 0
-    MULTIPLE = 1
+from .tesse_gym import NetworkConfig, TesseGym
 
 
 class TreasureHunt(TesseGym):
-    # TARGET_COLOR = (245, 231, 50)
-    TARGET_COLOR = (10, 138, 80)  # for tesse v5.1 and above
-    CAMERA_FOV = 45
+    TARGET_COLOR = (10, 138, 80)
+    CAMERA_FOV = 60
 
     def __init__(
         self,
-        environment_file: str,
+        build_path: str,
         network_config: NetworkConfig = NetworkConfig(),
         scene_id: int = None,
         max_steps: int = 300,
@@ -62,15 +53,15 @@ class TreasureHunt(TesseGym):
         success_dist: float = 2,
         restart_on_collision: bool = False,
         init_hook: callable = None,
-        hunt_mode: HuntMode = HuntMode.MULTIPLE,
         target_found_reward: int = 1,
         continuous_control: bool = False,
         launch_tesse: bool = True,
+        n_target_types: int = 1,
     ):
         """ Initialize the TESSE treasure hunt environment.
 
         Args:
-            environment_file (str): Path to TESSE executable.
+            build_path (str): Path to TESSE executable.
             network_config (NetworkConfig): Network configuration parameters.
             scene_id (int): Scene id to load.
             max_steps (int): Maximum number of steps in the episode.
@@ -86,9 +77,10 @@ class TreasureHunt(TesseGym):
                 agent. False to use discrete transforms.
             launch_tesse (bool): True to start tesse instance. Otherwise, assume another
                 instance is running.
+            n_target_types (int): Number of target types available to spawn.
         """
         super().__init__(
-            environment_file,
+            build_path,
             network_config,
             scene_id,
             max_steps,
@@ -102,8 +94,8 @@ class TreasureHunt(TesseGym):
         self.max_steps = max_steps
         self.restart_on_collision = restart_on_collision
         self.target_found_reward = target_found_reward
-        self.hunt_mode = hunt_mode
         self.n_found_targets = 0
+        self.n_target_types = n_target_types
 
     @property
     def action_space(self):
@@ -131,7 +123,7 @@ class TreasureHunt(TesseGym):
         """ Reset the sim, randomly respawn agent and targets.
 
         Returns:
-            np.ndarray: The observed image. """
+            np.ndarray: Agent's observation. """
         self.done = False
         self.steps = 0
         self.n_found_targets = 0
@@ -141,7 +133,7 @@ class TreasureHunt(TesseGym):
 
         for i in range(self.n_targets):
             self.env.request(
-                SpawnObjectRequest(ObjectType.CUBE, ObjectSpawnMethod.RANDOM)
+                SpawnObjectRequest(i % self.n_target_types, ObjectSpawnMethod.RANDOM)
             )
 
         if self.step_mode:
@@ -157,27 +149,14 @@ class TreasureHunt(TesseGym):
         Args:
             action (action_space): Make agent take `action`.
         """
-        if action == 0:
+        if action == 0:  # move forward 0.5m
             self.transform(0, 0.5, 0)
         elif action == 1:
-            self.transform(0, 0, 8)
+            self.transform(0, 0, 8)  # turn right 8 degrees
         elif action == 2:
-            self.transform(0, 0, -8)
+            self.transform(0, 0, -8)  # turn left 8 degrees
         elif action != 3:
             raise ValueError(f"Unexpected action {action}")
-
-    def forward_transform(self, x, z, y):
-        """ Move forward in 5 small increments. This a bit of a
-        hack to accommodate thin colliders, the small steps ensure
-        the agent doesn't pass through them. """
-        x /= 5.0
-        z /= 5.0
-        y /= 5.0
-
-        for _ in range(4):
-            self.transform(x, z, y)
-            time.sleep(0.02)  # so messages don't get dropped
-        self.transform(x, z, y)
 
     def compute_reward(self, observation, action):
         """ Compute reward consisting of
@@ -188,16 +167,20 @@ class TreasureHunt(TesseGym):
 
         Args:
             observation (DataResponse): Images and metadata used to
-            compute the reward.
+                compute the reward.
             action (action_space): Action taken by agent.
 
         Returns:
-            float: Computed reward.
+            Tuple[float, dict[str, [bool, int]]
+                Reward,
+                Dictionary with the following keys
+                    - env_changed: True if agent changed the environment.
+                    - collision: True if there was a collision
+
         """
         targets = self.env.request(ObjectsRequest())
         agent_data = observation
-        # track if agent changes environment (e.g. collects reward) so it can reobserve
-        env_changed = False
+        reward_info = {"env_changed": False, "collision": False, "n_found_targets": 0}
 
         # compute agent's distance from targets
         agent_position = self._get_agent_position(agent_data.metadata)
@@ -207,45 +190,35 @@ class TreasureHunt(TesseGym):
 
         reward = -0.01  # small time penalty
 
-        # Reset if agent falls out of env
-        # TODO: tmp check until aggressive random spawn jitter is fixed
-        if agent_position[1] < 0:
-            self.done = True
-            return reward, False
-
         # check for found targets
         if target_position.shape[0] > 0 and action == 3:
             found_targets = self.get_found_targets(
                 agent_position, target_position, target_ids, agent_data
             )
 
+            # if targets are found, update reward and related episode info
             if len(found_targets):
-                # if in `MULTIPLE` mode, remove found targets
-                if self.hunt_mode is HuntMode.MULTIPLE:
-                    self.n_found_targets += len(found_targets)
-                    reward += self.target_found_reward * len(found_targets)
-                    self.env.request(RemoveObjectsRequest(ids=found_targets))
-                    env_changed = True
+                self.n_found_targets += len(found_targets)
+                reward += self.target_found_reward * len(found_targets)
+                self.env.request(RemoveObjectsRequest(ids=found_targets))
+                reward_info["env_changed"] = True
+                reward_info["n_found_targets"] += len(found_targets)
 
-                    # if all targets have been found, restart the  episode
-                    if self.n_found_targets == self.n_targets:
-                        self._success_action()
-                        self.done = True
-
-                # if in `SINGLE` mode, reset the episode
-                elif self.hunt_mode == HuntMode.SINGLE:
-                    self._success_action()  # signal task was successful
-                    reward += self.target_found_reward
+                # if all targets have been found, restart the episode
+                if self.n_found_targets == self.n_targets:
                     self.done = True
 
         self.steps += 1
         if self.steps > self.max_steps:
             self.done = True
 
-        if self.restart_on_collision and self._collision(agent_data.metadata):
-            self.done = True
+        if self._collision(agent_data.metadata):
+            reward_info["collision"] = True
 
-        return reward, env_changed
+            if self.restart_on_collision:
+                self.done = True
+
+        return reward, reward_info
 
     def get_found_targets(
         self, agent_position, target_position, target_ids, agent_data
@@ -312,12 +285,6 @@ class TreasureHunt(TesseGym):
         )
         return np.rad2deg(target_orientation).reshape(-1)
 
-    def _success_action(self):
-        """ Simple indicator that the agent has achieved the goal. """
-        for i in range(0, 360, 360 // 5):
-            self.env.send(self.TransformMessage(0, 0, 360 // 5))
-            time.sleep(0.1)
-
     @staticmethod
     def _collision(metadata):
         """ Check for collision with environment.
@@ -345,3 +312,59 @@ class TreasureHunt(TesseGym):
             position.append(self._read_position(obj.find("position")))
             obj_ids.append(obj.find("id").text)
         return np.array(obj_ids, dtype=np.uint32), np.array(position, dtype=np.float32)
+
+
+class MultiModalandPose(TreasureHunt):
+    """ Define a custom TESSE gym environment to provide RGB, depth,
+    segmentation, and pose data.
+    """
+
+    DEPTH_SCALE = 5
+    N_CLASSES = 11
+    WALL_CLS = 2
+
+    @property
+    def observation_space(self):
+        """ This must be defined for custom observations. """
+        return spaces.Box(np.Inf, np.Inf, shape=(240 * 320 * 5 + 3,))  # imgs + pose
+
+    def form_agent_observation(self, tesse_data):
+        """ Create the agent's observation from a TESSE data response.
+
+        Args:
+            tesse_data (DataResponse): TESSE DataResponse object containing
+                RGB, depth, segmentation, and pose.
+
+        Returns:
+            np.ndarray: The agent's observation.
+        """
+        eo, seg, depth = tesse_data.images
+        seg = seg[..., 0].copy()  # get segmentation as one-hot encoding
+        seg[seg > (self.N_CLASSES - 1)] = self.WALL_CLS  # assign background to wall cls
+        observation = np.concatenate(
+            (
+                eo / 255.0,
+                seg[..., np.newaxis] / (self.N_CLASSES - 1),
+                (depth[..., np.newaxis] * self.DEPTH_SCALE).clip(0, 1),
+            ),
+            axis=-1,
+        ).reshape(-1)
+        pose = self.get_pose().reshape((3))
+
+        if (np.abs(pose) > 100).any():
+            raise ValueError("Pose is out of observation space")
+        return np.concatenate((observation, pose))
+
+    def observe(self):
+        """ Get observation data from TESSE.
+
+        Returns:
+            DataResponse: TESSE DataResponse object.
+        """
+        cameras = [
+            (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
+            (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
+            (Camera.DEPTH, Compression.OFF, Channels.THREE),
+        ]
+        agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
+        return agent_data

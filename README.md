@@ -3,12 +3,16 @@
 Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
 
 
+Treasure Hunt |  Navigation
+:----------:|:---------------:
+![](docs/hunt-1.gif) | ![](docs/nav-1.gif)
+
 ## Installation
 
 ### From Source
 Using [Anaconda](https://www.anaconda.com/distribution/#download-section) or [miniconda](https://docs.conda.io/en/latest/miniconda.html) is highly recommended. Python 3.6 is required.
 
-1. Clone this repository
+1. Clone this Repository
 ```sh
 git clone git@github.mit.edu:TESS/tesse-gym.git
 cd tesse-gym
@@ -41,31 +45,26 @@ cd ../../tesse-gym
 python setup.py install
 ```
 
-## Getting started
+## Getting Started
 
-This package provides environments for the following tasks:
+### Treasure Hunt Training
 
-### 1. Treasure Hunt
-
-#### Objective 
-Treasures (yellow cubes) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. 
-
-#### Observation space
-The agent acts on a first-person RGB image. We may add depth for the challange and provide a semantic segmentation model.
+Treasures (fruits) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. The agent acts on a first-person RGB, depth, and semantic segmentation images as well as relative pose from starting location.
 
 See the [example notebook](notebooks/stable-baselines-ppo.ipynb) to get started.
 
-### 2. Navigation
+### Evaluation
+
+See the [GOSEEK Challenge](https://github.mit.edu/TESS/goseek-challenge) landing page for details on evaluation and submission.
+
+
+## Other Tasks
+
+### Navigation
 
 The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
 
-
-Navigation | Treasure Hunt
-:----------:|:---------------:
-![](docs/nav-1.gif) | ![](docs/hunt-1.gif)
-
-
-### New tasks
+### New Tasks
 At a minimum, a new task will inherit `tess_gym.TesseGym` and impliment the following:
 
 ```python
@@ -80,7 +79,6 @@ class CustomTask(TesseGym):
     def compute_reward(self, observation, action):
         pass
 ```
-  
 
 ### Disclaimer
 

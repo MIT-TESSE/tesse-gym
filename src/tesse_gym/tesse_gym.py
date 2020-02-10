@@ -21,61 +21,19 @@
 
 import atexit
 import subprocess
-from collections import namedtuple
 import time
 
-import numpy as np
 import defusedxml.ElementTree as ET
+import numpy as np
+from gym import Env as GymEnv
+from gym import logger, spaces
 from scipy.spatial.transform import Rotation
-from gym import Env as GymEnv, logger, spaces
 
 from tesse.env import Env
 from tesse.msgs import *
+
 from .continuous_control import ContinuousController
-
-
-NetworkConfig = namedtuple(
-    "NetworkConfig",
-    [
-        "simulation_ip",
-        "own_ip",
-        "position_port",
-        "metadata_port",
-        "image_port",
-        "step_port",
-    ],
-    defaults=("localhost", "localhost", 9000, 9001, 9002, 9005),
-)
-
-
-def get_network_config(
-    simulation_ip="localhost",
-    own_ip="localhost",
-    base_port=9000,
-    worker_id=0,
-    n_ports=6,
-):
-    """ Get a TESSE network configuration instance.
-
-    Args:
-        simulation_ip (str): TESSE IP address.
-        own_ip (str): Local IP address.
-        base_port (int): Starting connection port. It is assumed the rest of the ports
-            follow sequentially.
-        worker_id (int): Worker ID of this Gym instance. Ports are staggered by ID.
-        n_ports (int): Number of ports allocated to each TESSE instance.
-
-    Returns:
-        NetworkConfig: NetworkConfig object.
-    """
-    return NetworkConfig(
-        simulation_ip=simulation_ip,
-        own_ip=own_ip,
-        position_port=base_port + worker_id * n_ports,
-        metadata_port=base_port + worker_id * n_ports + 1,
-        image_port=base_port + worker_id * n_ports + 2,
-        step_port=base_port + worker_id * n_ports + 5,
-    )
+from .utils import NetworkConfig, get_network_config
 
 
 class TesseGym(GymEnv):
@@ -93,7 +51,7 @@ class TesseGym(GymEnv):
 
     def __init__(
         self,
-        environment_file: str,
+        build_path: str,
         network_config: NetworkConfig = get_network_config(),
         scene_id: int = None,
         max_steps: int = 300,
@@ -104,7 +62,7 @@ class TesseGym(GymEnv):
     ):
         """
         Args:
-            environment_file (str): Path to TESS executable.
+            build_path (str): Path to TESS executable.
             network_config (NetworkConfig): Network configuration parameters.
             scene_id (int): Scene to use.
             max_steps (int): Max steps per episode.
@@ -125,7 +83,7 @@ class TesseGym(GymEnv):
         if launch_tesse:
             self.proc = subprocess.Popen(
                 [
-                    environment_file,
+                    build_path,
                     "--listen_port",
                     str(int(network_config.position_port)),
                     "--send_port",
@@ -153,6 +111,7 @@ class TesseGym(GymEnv):
 
         # if specified, set step mode parameters
         self.step_mode = False
+        self.step_rate = step_rate  # TODO find cleaner way to handle this
         if step_rate > 0:
             self.env.request(SetFrameRate(step_rate))
             self.step_mode = True
@@ -183,9 +142,8 @@ class TesseGym(GymEnv):
             init_hook(self)
 
         # track relative pose throughout episode
-        self.initial_pose = np.zeros(
-            (3,)
-        )  # (x, z, yaw) pose from starting point in agent frame
+        # (x, z, yaw) pose from starting point in agent frame
+        self.initial_pose = np.zeros((3,))
         self.initial_rotation = np.eye(2)
         self.relative_pose = np.zeros((3,))
 
@@ -236,14 +194,14 @@ class TesseGym(GymEnv):
 
         self.apply_action(action)
         response = self.observe()
-        reward, env_changed = self.compute_reward(response, action)
+        reward, reward_info = self.compute_reward(response, action)
 
-        if env_changed and not self.done:
-            response = self.observe()
+        if reward_info["env_changed"] and not self.done:
+            response = self.get_synced_observation()
 
         self._update_pose(response.metadata)
 
-        return self.form_agent_observation(response), reward, self.done, {}
+        return self.form_agent_observation(response), reward, self.done, reward_info
 
     def observe(self):
         """ Observe state. """
@@ -277,6 +235,29 @@ class TesseGym(GymEnv):
         """ Kill simulation if running. """
         if self.launch_tesse:
             self.proc.kill()
+
+    def get_synced_observation(self):
+        """ Get observation synced with sim time. """
+        if self.launch_tesse:
+            response = self.observe()
+        else:
+            self.advance_game_time(1)  # advance game time to capture env changes
+            while True:
+                response = self.observe()
+                t1 = float(
+                    ET.fromstring(self.continuous_controller.last_metadata)
+                    .find("time")
+                    .text
+                )
+                t2 = float(ET.fromstring(response.metadata).find("time").text)
+                timediff = np.round(t1 - t2, 2)
+
+                # if observation is late, query until image server catches up.
+                if timediff < 1 / self.step_rate:
+                    break
+                else:
+                    response = self.observe()
+        return response
 
     def form_agent_observation(self, scene_observation):
         """ Form agent's observation from a part
