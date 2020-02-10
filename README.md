@@ -3,7 +3,7 @@
 Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
 
 
-Navigation | Treasure Hunt
+Treasure Hunt |  Navigation
 :----------:|:---------------:
 ![](docs/hunt-1.gif) | ![](docs/nav-1.gif)
 
