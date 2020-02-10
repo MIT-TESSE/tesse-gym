@@ -206,7 +206,7 @@ class ContinuousController:
         """ Returns True if at the goal location within the threshold.
 
         Args:
-            data (Dict[str]): Agent's position, orientation, velocity,
+            data (Dict[str, Dict[str, str]]): Agent's position, orientation, velocity,
                 and acceleration.
         """
         # check position
@@ -226,7 +226,7 @@ class ContinuousController:
         """ Applies PD-control to move to the goal point.
 
         Args:
-            data (Dict[str]): Agent's position, orientation, velocity,
+            data (Dict[str, Dict[str,str]]): Agent's position, orientation, velocity,
                 and acceleration.
         """
         # First, calculate position errors and a force in x- and z- to apply
