@@ -149,7 +149,7 @@ class GoSeek(TesseGym):
         """ Make agent take the specified action.
 
         Args:
-            action (action_space): Make agent take `action`.
+            action (int): Make agent take `action`.
         """
         if action == 0:  # move forward 0.5m
             self.transform(0, 0.5, 0)
@@ -166,10 +166,10 @@ class GoSeek(TesseGym):
         """ Compute reward.
 
         Reward consists of:
-            - Reward if the agent has completed its task
-              of being within `success_dist` of a target in its FOV
-               and has given the 'done' signal (action == 3).
             - Small time penalty
+            - If the agent is (1) within `success_dist`, (2) has the target in its FOV,
+                and (3) executes action 3, it receives a reward equal to the
+                number of targets found times `self.target_found_reward`
 
         Args:
             observation (DataResponse): Images and metadata used to
@@ -258,14 +258,14 @@ class GoSeek(TesseGym):
         # if the agent is within `success_dist` of target, can see it,
         # and gives the `found` action, count as found
         if dists.min() < self.success_dist and target_in_fov.any():
-            targets_within_dist = target_ids[dists < self.success_dist]
+            targets_in_range = target_ids[dists < self.success_dist]
             found_target_positions = target_position[dists < self.success_dist]
             agent_orientation = self._get_agent_rotation(agent_data.metadata)[-1]
-            angles_rel_agent = self.get_target_orientation(
+            target_heading_relative_agent = self.get_target_orientation(
                 agent_orientation, found_target_positions, agent_position
             )
-            found_targets = targets_within_dist[
-                np.where(angles_rel_agent < self.CAMERA_FOV)
+            found_targets = targets_in_range[
+                np.where(target_heading_relative_agent < self.CAMERA_FOV)
             ]
 
         return found_targets
@@ -343,8 +343,14 @@ class MultiModalGoSeek(GoSeek):
 
     @property
     def observation_space(self) -> spaces.Box:
-        """ This must be defined for custom observations. """
-        return spaces.Box(np.Inf, np.Inf, shape=(240 * 320 * 5 + 3,))  # imgs + pose
+        """ Define an observation space for RGB, depth, segmentation, and pose.
+
+        Because Stables Baselines (the baseline PPO library) does not support dictionary spaces,
+        the observation images and pose vector will be combined into a vector. The RGB image
+        is of shape (240, 320, 3), depth and segmentation are both (240, 320), ose is (3,), thus
+        the total shape is (240 * 320 * 5 + 3).
+        """
+        return spaces.Box(np.Inf, np.Inf, shape=(240 * 320 * 5 + 3,))
 
     def form_agent_observation(self, tesse_data: DataResponse) -> np.ndarray:
         """ Create the agent's observation from a TESSE data response.
@@ -358,7 +364,10 @@ class MultiModalGoSeek(GoSeek):
         """
         eo, seg, depth = tesse_data.images
         seg = seg[..., 0].copy()  # get segmentation as one-hot encoding
-        seg[seg > (self.N_CLASSES - 1)] = self.WALL_CLS  # assign background to wall cls
+
+        # TESSE assigns areas without a material (e.g. outside windows) the maximum possible
+        # image value. It will be classified as wall.
+        seg[seg > (self.N_CLASSES - 1)] = self.WALL_CLS
         observation = np.concatenate(
             (
                 eo / 255.0,
