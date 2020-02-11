@@ -172,7 +172,7 @@ class TesseGym(GymEnv):
             self.env.send(self.TransformMessage(x, z, y))
 
     @property
-    def observation_space(self):
+    def observation_space(self) -> spaces.Box:
         """ Space observed by the agent. """
         return spaces.Box(0, 255, dtype=np.uint8, shape=self.shape)
 
