@@ -51,7 +51,7 @@ python setup.py install
 
 Treasures (fruits) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. The agent acts on a first-person RGB, depth, and semantic segmentation images as well as relative pose from starting location.
 
-See the [example notebook](notebooks/stable-baselines-ppo.ipynb) to get started.
+See the [example notebook](baselines/stable-baselines-ppo.ipynb) to get started.
 
 ### Evaluation
 
@@ -62,7 +62,7 @@ See the [GOSEEK Challenge](https://github.mit.edu/TESS/goseek-challenge) landing
 
 ### Navigation
 
-The agent must move throughout it's environment without collisions. See  the [example notebook](notebooks/navigation-training.ipynb) to get started.
+The agent must move throughout it's environment without collisions. See  the [example notebook](baselines/navigation-training.ipynb) to get started.
 
 ### New Tasks
 At a minimum, a new task will inherit `tess_gym.TesseGym` and impliment the following:
