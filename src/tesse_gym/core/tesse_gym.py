@@ -148,6 +148,7 @@ class TesseGym(GymEnv):
         self.initial_pose = np.zeros((3,))
         self.initial_rotation = np.eye(2)
         self.relative_pose = np.zeros((3,))
+        self._init_pose()
 
     def advance_game_time(self, n_steps: int) -> None:
         """ Advance game time in step mode by sending step forces of 0 to TESSE. """
