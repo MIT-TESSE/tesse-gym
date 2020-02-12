@@ -62,6 +62,7 @@ class GoSeekBenchmark(Benchmark):
             print(f"Evaluation episode on scene: {episode}")
             n_found_targets = 0
             n_predictions = 0
+            n_successful_predictions = 0
             n_collisions = 0
             step = 0
 
@@ -80,12 +81,13 @@ class GoSeekBenchmark(Benchmark):
 
                 if action == 3:
                     n_predictions += 1
+                    n_successful_predictions += 1 if info["n_found_targets"] else 0
                 if info["collision"]:
                     n_collisions += 1
                 if done:
                     break
 
-            precision = n_found_targets / n_predictions
+            precision = n_successful_predictions / n_predictions
             recall = n_found_targets / self.env.n_targets
             results[str(episode)] = {
                 "found_targets": n_found_targets,
