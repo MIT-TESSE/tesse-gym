@@ -59,7 +59,7 @@ class TesseGym(GymEnv):
         max_steps: int = 300,
         step_rate: int = -1,
         init_hook: callable = None,
-        continuous_control: bool = False,
+        ground_truth_mode: bool = True,
         launch_tesse: bool = True,
     ) -> None:
         """
@@ -72,8 +72,7 @@ class TesseGym(GymEnv):
                 `step_rate` FPS.
             init_hook (callable): Method to adjust any experiment specific parameters
                 upon startup (e.g. camera parameters).
-            continuous_control (bool): True to use a continuous controller to move the
-                agent. False to use discrete transforms..
+            ground_truth_mode (bool): TODO (ZR) document
             launch_tesse (bool): True to start tesse instance. Otherwise, assume another
                 instance is running.
         """
@@ -113,7 +112,7 @@ class TesseGym(GymEnv):
 
         # if specified, set step mode parameters
         self.step_mode = False
-        self.step_rate = step_rate  # TODO find cleaner way to handle this
+        self.step_rate = step_rate
         if step_rate > 0:
             self.env.request(SetFrameRate(step_rate))
             self.step_mode = True
@@ -121,13 +120,13 @@ class TesseGym(GymEnv):
         self.TransformMessage = StepWithTransform if self.step_mode else Transform
 
         # if specified, set continuous control
-        self.continuous_control = continuous_control
-        if self.continuous_control and step_rate < 1:
+        self.ground_truth_mode = ground_truth_mode
+        if not self.ground_truth_mode and step_rate < 1:
             raise ValueError(
                 f"A step rate must be given to run the continuous controller"
             )
 
-        if self.continuous_control:
+        if not self.ground_truth_mode:
             self.continuous_controller = ContinuousController(
                 self.env, framerate=step_rate
             )
@@ -167,7 +166,7 @@ class TesseGym(GymEnv):
             z (float): desired z translation.
             y (float): Desired rotation (in degrees).
         """
-        if self.continuous_control:
+        if not self.ground_truth_mode:
             self.continuous_controller.transform(x, z, np.deg2rad(y))
         else:
             self.env.send(self.TransformMessage(x, z, y))
@@ -248,7 +247,7 @@ class TesseGym(GymEnv):
         Returns:
             DataResponse
         """
-        if self.launch_tesse:
+        if self.launch_tesse or self.ground_truth_mode:
             response = self.observe()
         else:
             self.advance_game_time(1)  # advance game time to capture env changes

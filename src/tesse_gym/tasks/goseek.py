@@ -56,7 +56,7 @@ class GoSeek(TesseGym):
         restart_on_collision: bool = False,
         init_hook: callable = None,
         target_found_reward: int = 1,
-        continuous_control: bool = False,
+        ground_truth_mode: bool = True,
         launch_tesse: bool = True,
         n_target_types: int = 1,
     ):
@@ -75,8 +75,7 @@ class GoSeek(TesseGym):
                 field of view.
             init_hook (callable): Method to adjust any experiment specific parameters
                 upon startup (e.g. camera parameters).
-            continuous_control (bool): True to use a continuous controller to move the
-                agent. False to use discrete transforms.
+            ground_truth_mode (bool): TODO (ZR) docs
             launch_tesse (bool): True to start tesse instance. Otherwise, assume another
                 instance is running.
             n_target_types (int): Number of target types available to spawn.
@@ -88,7 +87,7 @@ class GoSeek(TesseGym):
             max_steps,
             step_rate,
             init_hook=init_hook,
-            continuous_control=continuous_control,
+            ground_truth_mode=ground_truth_mode,
             launch_tesse=launch_tesse,
         )
         self.n_targets = n_targets
