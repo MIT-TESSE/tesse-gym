@@ -1,3 +1,6 @@
 numpy
 scipy
 gym
+defusedxml
+Pillow
+-e git+git@github.mit.edu:TESS/tesse-interface.git@d36fd91782ee7114ee228cb6fe9628061bc61509#egg=tesse
