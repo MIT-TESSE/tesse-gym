@@ -12,6 +12,13 @@ Treasure Hunt |  Navigation
 ### From Source
 Using [Anaconda](https://www.anaconda.com/distribution/#download-section) or [miniconda](https://docs.conda.io/en/latest/miniconda.html) is highly recommended. Python 3.7 is required.
 
+1. If using conda, create a new environment
+
+```sh
+conda create -n tess_gym python=3.7
+conda activate tess_gym
+```
+
 1. Clone this Repository
 ```sh
 git clone git@github.mit.edu:TESS/tesse-gym.git
@@ -21,10 +28,6 @@ cd tesse-gym
 2. Install Dependencies. *NOTE*: This requires access to [tesse-interface](https://github.mit.edu/TESS/tesse-interface). 
 
 ```sh
-# Create an anaconda environment (optional)
-conda create -n tess_gym python=3.7
-conda activate tess_gym
-
 # install requirements
 pip install -r requirements.txt
 ```
