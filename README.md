@@ -19,13 +19,13 @@ conda create -n tess_gym python=3.7
 conda activate tess_gym
 ```
 
-1. Clone this Repository
+2. Clone this Repository
 ```sh
 git clone git@github.mit.edu:TESS/tesse-gym.git
 cd tesse-gym
 ```
 
-2. Install Dependencies. *NOTE*: This requires access to [tesse-interface](https://github.mit.edu/TESS/tesse-interface). 
+3. Install Dependencies. *NOTE*: This requires access to [tesse-interface](https://github.mit.edu/TESS/tesse-interface). 
 
 ```sh
 # install requirements
@@ -33,7 +33,7 @@ pip install -r requirements.txt
 ```
 
 
-3. Install tesse-gym
+4. Install tesse-gym
 
 ```sh
 python setup.py install
