@@ -28,7 +28,6 @@ cd tesse-gym
 3. Install Dependencies. *NOTE*: This requires access to [tesse-interface](https://github.mit.edu/TESS/tesse-interface). 
 
 ```sh
-# install requirements
 pip install -r requirements.txt
 ```
 
@@ -36,7 +35,7 @@ pip install -r requirements.txt
 4. Install tesse-gym
 
 ```sh
-python setup.py install
+python setup.py develop
 ```
 
 ## Getting Started
