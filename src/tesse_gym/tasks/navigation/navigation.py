@@ -65,7 +65,7 @@ class Navigation(TesseGym):
             reward += 0.1  # reward for stepping forward
 
         self.steps += 1
-        if self.steps > self.max_steps:
+        if self.steps > self.episode_length:
             self.done = True
 
         # check for collision

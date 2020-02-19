@@ -22,7 +22,7 @@
 import atexit
 import subprocess
 import time
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Union
 
 from xml.etree.cElementTree import Element
 import defusedxml.ElementTree as ET
@@ -53,21 +53,21 @@ class TesseGym(GymEnv):
 
     def __init__(
         self,
-        build_path: str,
+        sim_path: Union[str, None],
         network_config: NetworkConfig = get_network_config(),
         scene_id: int = None,
-        max_steps: int = 300,
+        episode_length: int = 300,
         step_rate: int = -1,
         init_hook: callable = None,
         ground_truth_mode: bool = True,
-        launch_tesse: bool = True,
     ) -> None:
         """
         Args:
-            build_path (str): Path to TESS executable.
+            sim_path (str): Path to simulator executable. If `None` is given, assume
+                the simulator is running externally.
             network_config (NetworkConfig): Network configuration parameters.
             scene_id (int): Scene to use.
-            max_steps (int): Max steps per episode.
+            episode_length (int): Max steps per episode.
             step_rate (int): If specified, game time is fixed to
                 `step_rate` FPS.
             init_hook (callable): Method to adjust any experiment specific parameters
@@ -80,11 +80,11 @@ class TesseGym(GymEnv):
 
         # launch Unity if in training mode
         # otherwise, assume Unity is already running (e.g. for Kimera)
-        self.launch_tesse = launch_tesse
-        if launch_tesse:
+        self.launch_tesse = isinstance(sim_path, str) and sim_path is not ""
+        if self.launch_tesse:
             self.proc = subprocess.Popen(
                 [
-                    build_path,
+                    sim_path,
                     "--listen_port",
                     str(int(network_config.position_port)),
                     "--send_port",
@@ -131,7 +131,7 @@ class TesseGym(GymEnv):
                 self.env, framerate=step_rate
             )
 
-        self.max_steps = max_steps
+        self.episode_length = episode_length
         self.done = False
         self.steps = 0
 
@@ -237,6 +237,8 @@ class TesseGym(GymEnv):
         """ Kill simulation if running. """
         if self.launch_tesse:
             self.proc.kill()
+        if not self.ground_truth_mode:
+            self.continuous_controller.close()
 
     def get_synced_observation(self) -> DataResponse:
         """ Get observation synced with sim time.

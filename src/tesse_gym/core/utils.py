@@ -21,8 +21,7 @@
 
 from collections import namedtuple
 
-from tesse.msgs import (Camera, SetCameraParametersRequest,
-                        SetCameraPositionRequest)
+from tesse.msgs import Camera, SetCameraParametersRequest, SetCameraPositionRequest
 
 NetworkConfig = namedtuple(
     "NetworkConfig",

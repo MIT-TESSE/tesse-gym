@@ -266,3 +266,6 @@ class ContinuousController:
         )
 
         self.env.send(StepWithForce(force_z, torque_y, force_x))
+
+    def close(self):
+        self.udp_listener.join()

@@ -19,14 +19,9 @@
 # this work.
 ###################################################################################################
 
-from setuptools import setup, find_packages
+from tesse_gym.tasks.goseek.goseek import GoSeek
+from tesse_gym.tasks.goseek.goseek_benchmark import GoSeekBenchmark
+from tesse_gym.tasks.goseek.goseek_config import get_goseek_cfg_defaults
+from tesse_gym.tasks.goseek.goseek_full_perception import GoSeekFullPerception
 
-setup(
-    name='tesse_gym',
-    version='0.1.1',
-    description='TESSE OpenAI Gym python interface',
-    packages=find_packages('src'),
-    # tell setuptools that all packages will be under the 'src' directory
-    # and nowhere else
-    package_dir={'': 'src'},
-)
+__all__ = ["GoSeek", "GoSeekFullPerception", "GoSeekBenchmark", "get_goseek_cfg_defaults"]

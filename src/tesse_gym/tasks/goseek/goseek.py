@@ -19,7 +19,8 @@
 # this work.
 ###################################################################################################
 
-from typing import Dict, Tuple, Union, List
+from typing import Dict, List, Tuple, Union
+
 import defusedxml.ElementTree as ET
 import numpy as np
 from gym import spaces
@@ -49,7 +50,7 @@ class GoSeek(TesseGym):
         build_path: str,
         network_config: NetworkConfig = NetworkConfig(),
         scene_id: int = None,
-        max_steps: int = 300,
+        episode_length: int = 300,
         step_rate: int = -1,
         n_targets: int = 50,
         success_dist: float = 2,
@@ -57,7 +58,6 @@ class GoSeek(TesseGym):
         init_hook: callable = None,
         target_found_reward: int = 1,
         ground_truth_mode: bool = True,
-        launch_tesse: bool = True,
         n_target_types: int = 1,
     ):
         """ Initialize the TESSE treasure hunt environment.
@@ -66,7 +66,7 @@ class GoSeek(TesseGym):
             build_path (str): Path to TESSE executable.
             network_config (NetworkConfig): Network configuration parameters.
             scene_id (int): Scene id to load.
-            max_steps (int): Maximum number of steps in the episode.
+            episode_length (int): Maximum number of steps in the episode.
             step_rate (int): If specified, game time is fixed to
                 `step_rate` FPS.
             n_targets (int): Number of targets to spawn in the scene.
@@ -76,23 +76,19 @@ class GoSeek(TesseGym):
             init_hook (callable): Method to adjust any experiment specific parameters
                 upon startup (e.g. camera parameters).
             ground_truth_mode (bool): TODO (ZR) docs
-            launch_tesse (bool): True to start tesse instance. Otherwise, assume another
-                instance is running.
             n_target_types (int): Number of target types available to spawn.
         """
         super().__init__(
             build_path,
             network_config,
             scene_id,
-            max_steps,
+            episode_length,
             step_rate,
             init_hook=init_hook,
             ground_truth_mode=ground_truth_mode,
-            launch_tesse=launch_tesse,
         )
         self.n_targets = n_targets
         self.success_dist = success_dist
-        self.max_steps = max_steps
         self.restart_on_collision = restart_on_collision
         self.target_found_reward = target_found_reward
         self.n_found_targets = 0
@@ -214,7 +210,7 @@ class GoSeek(TesseGym):
                     self.done = True
 
         self.steps += 1
-        if self.steps > self.max_steps:
+        if self.steps > self.episode_length:
             self.done = True
 
         if self._collision(agent_data.metadata):
@@ -329,68 +325,3 @@ class GoSeek(TesseGym):
             position.append(self._read_position(obj.find("position")))
             obj_ids.append(obj.find("id").text)
         return np.array(obj_ids, dtype=np.uint32), np.array(position, dtype=np.float32)
-
-
-class MultiModalGoSeek(GoSeek):
-    """ Define a custom TESSE gym environment to provide RGB, depth,
-    segmentation, and pose data.
-    """
-
-    DEPTH_SCALE = 5
-    N_CLASSES = 11
-    WALL_CLS = 2
-
-    @property
-    def observation_space(self) -> spaces.Box:
-        """ Define an observation space for RGB, depth, segmentation, and pose.
-
-        Because Stables Baselines (the baseline PPO library) does not support dictionary spaces,
-        the observation images and pose vector will be combined into a vector. The RGB image
-        is of shape (240, 320, 3), depth and segmentation are both (240, 320), ose is (3,), thus
-        the total shape is (240 * 320 * 5 + 3).
-        """
-        return spaces.Box(np.Inf, np.Inf, shape=(240 * 320 * 5 + 3,))
-
-    def form_agent_observation(self, tesse_data: DataResponse) -> np.ndarray:
-        """ Create the agent's observation from a TESSE data response.
-
-        Args:
-            tesse_data (DataResponse): TESSE DataResponse object containing
-                RGB, depth, segmentation, and pose.
-
-        Returns:
-            np.ndarray: The agent's observation.
-        """
-        eo, seg, depth = tesse_data.images
-        seg = seg[..., 0].copy()  # get segmentation as one-hot encoding
-
-        # TESSE assigns areas without a material (e.g. outside windows) the maximum possible
-        # image value. It will be classified as wall.
-        seg[seg > (self.N_CLASSES - 1)] = self.WALL_CLS
-        observation = np.concatenate(
-            (
-                eo / 255.0,
-                seg[..., np.newaxis] / (self.N_CLASSES - 1),
-                (depth[..., np.newaxis] * self.DEPTH_SCALE).clip(0, 1),
-            ),
-            axis=-1,
-        ).reshape(-1)
-        pose = self.get_pose().reshape((3))
-
-        if (np.abs(pose) > 100).any():
-            raise ValueError("Pose is out of observation space")
-        return np.concatenate((observation, pose))
-
-    def observe(self) -> DataResponse:
-        """ Get observation data from TESSE.
-
-        Returns:
-            DataResponse: TESSE DataResponse object.
-        """
-        cameras = [
-            (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
-            (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
-            (Camera.DEPTH, Compression.OFF, Channels.THREE),
-        ]
-        agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
-        return agent_data

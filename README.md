@@ -13,49 +13,44 @@ Treasure Hunt |  Navigation
 Using [Anaconda](https://www.anaconda.com/distribution/#download-section) or [miniconda](https://docs.conda.io/en/latest/miniconda.html) is highly recommended. Python 3.7 is required.
 
 1. If using conda, create a new environment
-
 ```sh
-conda create -n tess_gym python=3.7
-conda activate tess_gym
+conda create -n tesse_gym python=3.7
+conda activate tesse_gym
 ```
 
-2. Clone this Repository
+2. Clone this repository, install dependencies, then install tesse-gym. *NOTE*: This requires access to [tesse-interface](https://github.mit.edu/TESS/tesse-interface). 
 ```sh
 git clone git@github.mit.edu:TESS/tesse-gym.git
 cd tesse-gym
-```
 
-3. Install Dependencies. *NOTE*: This requires access to [tesse-interface](https://github.mit.edu/TESS/tesse-interface). 
-
-```sh
 pip install -r requirements.txt
-```
-
-
-4. Install tesse-gym
-
-```sh
 python setup.py develop
+
+cd ..
 ```
 
-## Getting Started
 
-### Treasure Hunt Training
+## GOSEEK Challenge
 
-Treasures (fruits) are randomly placed throughout a TESSE environment. The agent must collect as many of these treasures as possible within the alloted time (default is 100 timesteps). A treasure is considered found when it is within `success_dist` (default is 2m) of the agent and within it's feild of view. The agent acts on a first-person RGB, depth, and semantic segmentation images as well as relative pose from starting location.
+The objective of this task is to navigate an agent through an office environment to collect randomly-spawned fruit as quickly as possible. 
 
-See the [example notebook](baselines/stable-baselines-ppo.ipynb) to get started.
+[![GOSEEK Teaser Trailer](https://img.youtube.com/vi/KXTag0xsg28/0.jpg)](https://www.youtube.com/watch?v=KXTag0xsg28)
 
-### Evaluation
+More specifically, the agent can select from one of four actions at each decision epoch: move forward 0.5 meters, turn left 8 degrees, turn right 8 degrees, and collect fruit within 2.0 meters of the agent's current position. Our robot is equiped with stereo cameras and an Inertial Measurement Unit (IMU), from which a state-of-the-art perception pipeline estimates three pieces of information that make up the agent's observation at each decision epoch: localization information (position and heading relative to start position), pixel-wise semantic labels for objects in the robot's field of view, and pixel-wise depth in the robot's field of view.
 
-See the [GOSEEK Challenge](https://github.mit.edu/TESS/goseek-challenge) landing page for details on evaluation and submission.
+### Quick Start
 
+See the [example notebook](baselines/goseek-ppo.ipynb) to train an agent.
+
+### Challenge Details 
+
+See the [GOSEEK Challenge](https://github.mit.edu/TESS/goseek-challenge) landing page for details on setup, evaluation, and submission.
 
 ## Other Tasks
 
 ### Navigation
 
-The agent must move throughout it's environment without collisions. See  the [example notebook](baselines/navigation-training.ipynb) to get started.
+The agent must move throughout it's environment without collisions. See  the [example notebook](baselines/navigation.ipynb) to get started.
 
 ### New Tasks
 At a minimum, a new task will inherit `tess_gym.TesseGym` and impliment the following:
