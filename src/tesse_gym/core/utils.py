@@ -67,7 +67,7 @@ def get_network_config(
     )
 
 
-def set_multiple_camera_params(
+def set_all_camera_params(
     tesse_gym,
     cameras=(Camera.RGB_LEFT, Camera.SEGMENTATION, Camera.DEPTH),
     height_in_pixels=240,

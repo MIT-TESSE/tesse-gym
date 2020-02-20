@@ -35,7 +35,7 @@ from tesse.env import Env
 from tesse.msgs import *
 
 from .continuous_control import ContinuousController
-from .utils import NetworkConfig, get_network_config
+from .utils import NetworkConfig, get_network_config, set_all_camera_params
 
 
 class TesseGym(GymEnv):
@@ -58,7 +58,7 @@ class TesseGym(GymEnv):
         scene_id: int = None,
         episode_length: int = 300,
         step_rate: int = -1,
-        init_hook: callable = None,
+        init_hook: callable = set_all_camera_params,
         ground_truth_mode: bool = True,
     ) -> None:
         """
@@ -70,11 +70,13 @@ class TesseGym(GymEnv):
             episode_length (int): Max steps per episode.
             step_rate (int): If specified, game time is fixed to
                 `step_rate` FPS.
-            init_hook (callable): Method to adjust any experiment specific parameters
-                upon startup (e.g. camera parameters).
-            ground_truth_mode (bool): TODO (ZR) document
-            launch_tesse (bool): True to start tesse instance. Otherwise, assume another
-                instance is running.
+            init_hook (callable): Method to adjust simulation upon startup
+                (e.g. camera parameters). Note, this will only be run in the
+                simulator is launched internally.
+            ground_truth_mode (bool): Assumes gym is consuming ground truth data. Otherwise,
+                assumes an external perception pipeline is running. In the latter mode, discrete
+                steps will be translated to continuous control commands and observations will be
+                explicitly synced with sim time.
         """
         atexit.register(self.close)
 
@@ -139,7 +141,7 @@ class TesseGym(GymEnv):
         self.env.send((ColliderRequest(1)))
 
         #  any experiment specific settings go here
-        if init_hook:
+        if init_hook and self.launch_tesse:
             init_hook(self)
 
         # track relative pose throughout episode
