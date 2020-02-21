@@ -22,6 +22,15 @@
 from tesse_gym.tasks.goseek.goseek import GoSeek
 from tesse_gym.tasks.goseek.goseek_benchmark import GoSeekBenchmark
 from tesse_gym.tasks.goseek.goseek_config import get_goseek_cfg_defaults
-from tesse_gym.tasks.goseek.goseek_full_perception import GoSeekFullPerception
+from tesse_gym.tasks.goseek.goseek_full_perception import (
+    GoSeekFullPerception,
+    decode_observations,
+)
 
-__all__ = ["GoSeek", "GoSeekFullPerception", "GoSeekBenchmark", "get_goseek_cfg_defaults"]
+__all__ = [
+    "GoSeek",
+    "GoSeekFullPerception",
+    "GoSeekBenchmark",
+    "get_goseek_cfg_defaults",
+    "decode_observations",
+]

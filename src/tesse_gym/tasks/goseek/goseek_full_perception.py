@@ -19,6 +19,8 @@
 # this work.
 ###################################################################################################
 
+from typing import Tuple
+
 import numpy as np
 from gym import spaces
 
@@ -31,8 +33,14 @@ class GoSeekFullPerception(GoSeek):
     """ Define a custom TESSE gym environment to provide RGB, depth, segmentation, and pose data.
     """
 
-    DEPTH_SCALE = 5
-    N_CLASSES = 11
+    # Unity scales depth in range [0, FAR_CLIP_FIELD] to [0, 1].
+    # Values above FAR_CLIP_FIELD are, as the name implies, clipped.
+    # Multiply depth by `DEPTH_SCALE` to recover values in meters.
+    FAR_CLIP_FIELD = 50
+    N_CLASSES = 11  # Number of classes used for GOSEEK
+
+    # Unity assigns areas without a material (e.g. outside windows) the maximum possible
+    # image value. For convenience, this will be changed to the wall class.
     WALL_CLS = 2
 
     @property
@@ -59,14 +67,13 @@ class GoSeekFullPerception(GoSeek):
         eo, seg, depth = tesse_data.images
         seg = seg[..., 0].copy()  # get segmentation as one-hot encoding
 
-        # TESSE assigns areas without a material (e.g. outside windows) the maximum possible
-        # image value. It will be classified as wall.
+        # See WALL_CLS comment
         seg[seg > (self.N_CLASSES - 1)] = self.WALL_CLS
         observation = np.concatenate(
             (
                 eo / 255.0,
                 seg[..., np.newaxis] / (self.N_CLASSES - 1),
-                (depth[..., np.newaxis] * self.DEPTH_SCALE).clip(0, 1),
+                depth[..., np.newaxis],
             ),
             axis=-1,
         ).reshape(-1)
@@ -89,3 +96,34 @@ class GoSeekFullPerception(GoSeek):
         ]
         agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
         return agent_data
+
+
+def decode_observations(
+    observation: np.ndarray, img_shape: Tuple[int, int, int, int] = (-1, 240, 320, 5)
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """ Decode observation vector into images and poses.
+
+    Args:
+        observation (np.ndarray): Shape (N,) observation array of flattened
+            images concatenated with a pose vector. Thus, N is equal to N*H*W*C + N*3.
+        img_shape (Tuple[int, int, int, int]): Shapes of all observed images stacked across
+            the channel dimension, resulting in a shape of (N, H, W, C).
+             Default value is (-1, 240, 320, 5).
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Arrays with the following information
+            - RGB image(s) of shape (N, H, W, 3)
+            - Segmentation image(s) of shape (N, H, W), in range [0, C) where C is the number of classes.
+            - Depth image(s) of shape (N, H, W), in range [0, 1]. To get true depth, multiply by the
+                Unity far clipping plane (default 50).
+            - Pose array of shape (N, 3) containing (x, y, heading) relative to starting point.
+                (x, y) are in meters, heading is given in degrees in the range [-180, 180].
+    """
+    imgs = observation[:, :-3].reshape(img_shape)
+    rgb = imgs[..., :3]
+    segmentation = imgs[..., 3]
+    depth = imgs[..., 4]
+
+    pose = observation[:, -3:]
+
+    return rgb, segmentation, depth, pose
