@@ -62,7 +62,9 @@ class GoSeekFullPerception(GoSeek):
                 RGB, depth, segmentation, and pose.
 
         Returns:
-            np.ndarray: The agent's observation.
+            np.ndarray: The agent's observation consisting of flatted RGB,
+                segmentation, and depth images concatenated with the relative
+                pose vector. To recover images and pose, see `decode_observations` below.
         """
         eo, seg, depth = tesse_data.images
         seg = seg[..., 0].copy()  # get segmentation as one-hot encoding
