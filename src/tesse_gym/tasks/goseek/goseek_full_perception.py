@@ -33,9 +33,9 @@ class GoSeekFullPerception(GoSeek):
     """ Define a custom TESSE gym environment to provide RGB, depth, segmentation, and pose data.
     """
 
-    # Unity scales depth in range [0, FAR_CLIP_FIELD] to [0, 1].
-    # Values above FAR_CLIP_FIELD are, as the name implies, clipped.
-    # Multiply depth by `DEPTH_SCALE` to recover values in meters.
+    # Unity scales depth in range [0, `FAR_CLIP_FIELD`] to [0, 1].
+    # Values above `FAR_CLIP_FIELD` are, as the name implies, clipped.
+    # Multiply depth by `FAR_CLIP_FIELD` to recover values in meters.
     FAR_CLIP_FIELD = 50
     N_CLASSES = 11  # Number of classes used for GOSEEK
 
