@@ -22,7 +22,7 @@
 import atexit
 import subprocess
 import time
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from xml.etree.cElementTree import Element
 import defusedxml.ElementTree as ET
@@ -54,12 +54,12 @@ class TesseGym(GymEnv):
     def __init__(
         self,
         sim_path: Union[str, None],
-        network_config: NetworkConfig = get_network_config(),
-        scene_id: int = None,
-        episode_length: int = 300,
-        step_rate: int = -1,
-        init_hook: callable = set_all_camera_params,
-        ground_truth_mode: bool = True,
+        network_config: Optional[NetworkConfig] = get_network_config(),
+        scene_id: Optional[int] = None,
+        episode_length: Optional[int] = 300,
+        step_rate: Optional[int] = -1,
+        init_hook: Optional[Callable[["TesseGym"], None]] = set_all_camera_params,
+        ground_truth_mode: Optional[bool] = True,
     ) -> None:
         """
         Args:

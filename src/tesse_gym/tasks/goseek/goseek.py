@@ -19,7 +19,7 @@
 # this work.
 ###################################################################################################
 
-from typing import Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import defusedxml.ElementTree as ET
 import numpy as np
@@ -48,17 +48,17 @@ class GoSeek(TesseGym):
     def __init__(
         self,
         build_path: str,
-        network_config: NetworkConfig = NetworkConfig(),
-        scene_id: int = None,
-        episode_length: int = 300,
-        step_rate: int = -1,
-        n_targets: int = 50,
-        success_dist: float = 2,
-        restart_on_collision: bool = False,
-        init_hook: callable = None,
-        target_found_reward: int = 1,
-        ground_truth_mode: bool = True,
-        n_target_types: int = 1,
+        network_config: Optional[NetworkConfig] = NetworkConfig(),
+        scene_id: Optional[int] = None,
+        episode_length: Optional[int] = 300,
+        step_rate: Optional[int] = -1,
+        n_targets: Optional[int] = 50,
+        success_dist: Optional[float] = 2,
+        restart_on_collision: Optional[bool] = False,
+        init_hook: Optional[Callable[[TesseGym], None]] = None,
+        target_found_reward: Optional[int] = 1,
+        ground_truth_mode: Optional[bool] = True,
+        n_target_types: Optional[int] = 1,
     ):
         """ Initialize the TESSE treasure hunt environment.
 
@@ -75,7 +75,10 @@ class GoSeek(TesseGym):
                 field of view.
             init_hook (callable): Method to adjust any experiment specific parameters
                 upon startup (e.g. camera parameters).
-            ground_truth_mode (bool): TODO (ZR) docs
+            ground_truth_mode (bool): Assumes gym is consuming ground truth data. Otherwise,
+                assumes an external perception pipeline is running. In the latter mode, discrete
+                steps will be translated to continuous control commands and observations will be
+                explicitly synced with sim time.
             n_target_types (int): Number of target types available to spawn.
         """
         super().__init__(
