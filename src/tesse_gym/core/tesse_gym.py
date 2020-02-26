@@ -23,8 +23,8 @@ import atexit
 import subprocess
 import time
 from typing import Any, Callable, Dict, Optional, Tuple, Union
-
 from xml.etree.cElementTree import Element
+
 import defusedxml.ElementTree as ET
 import numpy as np
 from gym import Env as GymEnv
@@ -56,7 +56,7 @@ class TesseGym(GymEnv):
         sim_path: Union[str, None],
         network_config: Optional[NetworkConfig] = get_network_config(),
         scene_id: Optional[int] = None,
-        episode_length: Optional[int] = 300,
+        episode_length: Optional[int] = 400,
         step_rate: Optional[int] = -1,
         init_hook: Optional[Callable[["TesseGym"], None]] = set_all_camera_params,
         ground_truth_mode: Optional[bool] = True,
@@ -212,15 +212,27 @@ class TesseGym(GymEnv):
         cameras = [(Camera.RGB_LEFT, Compression.OFF, Channels.THREE)]
         return self.env.request(DataRequest(metadata=True, cameras=cameras))
 
-    def reset(self) -> np.ndarray:
+    def reset(
+        self, scene_id: Optional[int] = None, random_seed: Optional[int] = None
+    ) -> np.ndarray:
         """ Reset environment and respawn agent.
+
+        Args:
+            scene_id (int): If given, change to this scene.
+            random_seed (int): If give, set simulator random seed.
 
         Returns:
             Observation.
         """
+        if random_seed:
+            self.env.request(SetRandomSeed(random_seed))
+
+        if scene_id:
+            self.env.request(SceneRequest(scene_id))
+
+        self.env.request(Respawn())
         self.done = False
         self.steps = 0
-        self.env.send(Respawn())
         self._init_pose()
         return self.form_agent_observation(self.observe())
 

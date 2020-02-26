@@ -31,14 +31,20 @@ from tesse.msgs import (
     Compression,
     DataRequest,
     DataResponse,
+    MetadataMessage,
     ObjectSpawnMethod,
     ObjectsRequest,
     RemoveObjectsRequest,
-    Respawn,
     SpawnObjectRequest,
 )
 from tesse_gym.core.tesse_gym import TesseGym
 from tesse_gym.core.utils import NetworkConfig
+
+
+# define custom message to signal episode reset
+# Used for resetting external perception pipelines
+class EpisodeResetSignal(MetadataMessage):
+    __tag__ = "sRES"
 
 
 class GoSeek(TesseGym):
@@ -119,17 +125,18 @@ class GoSeek(TesseGym):
         agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
         return agent_data
 
-    def reset(self) -> np.ndarray:
-        """ Reset the sim, randomly respawn agent and targets.
+    def reset(self, scene_id: Optional[int] = None, random_seed: Optional[int] = None) -> np.ndarray:
+        """ Reset environment and respawn agent.
+
+        Args:
+            scene_id (int): If given, change to this scene.
+            random_seed (int): If give, set simulator random seed.
 
         Returns:
             np.ndarray: Agent's observation. """
-        self.done = False
-        self.steps = 0
+        self.env.send(EpisodeResetSignal())
+        super().reset(scene_id, random_seed)
         self.n_found_targets = 0
-
-        self.env.send(Respawn())
-        self.env.request(RemoveObjectsRequest())
 
         for i in range(self.n_targets):
             self.env.request(
