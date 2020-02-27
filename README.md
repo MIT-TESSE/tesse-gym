@@ -18,13 +18,12 @@ conda create -n tesse_gym python=3.7
 conda activate tesse_gym
 ```
 
-2. Clone this repository, install dependencies, then install tesse-gym. *NOTE*: This requires access to [tesse-interface](https://github.mit.edu/TESS/tesse-interface). 
+2. Clone and install this repository. 
 ```sh
-git clone git@github.mit.edu:TESS/tesse-gym.git
+git clone https://github.com/MIT-TESSE/tesse-gym.git
 cd tesse-gym
 
-pip install -r requirements.txt
-python setup.py develop
+python setup.py install
 
 cd ..
 ```
@@ -44,29 +43,8 @@ See the [example notebook](baselines/goseek-ppo.ipynb) to train an agent.
 
 ### Challenge Details 
 
-See the [GOSEEK Challenge](https://github.mit.edu/TESS/goseek-challenge) landing page for details on setup, evaluation, and submission.
+See the [GOSEEK Challenge](../../../goseek-challenge) landing page for details on setup, evaluation, and submission.
 
-## Other Tasks
-
-### Navigation
-
-The agent must move throughout it's environment without collisions. See  the [example notebook](baselines/navigation.ipynb) to get started.
-
-### New Tasks
-At a minimum, a new task will inherit `tess_gym.TesseGym` and impliment the following:
-
-```python
-class CustomTask(TesseGym):
-    @property
-    def action_space(self):
-        pass
-    
-    def apply_action(self, action):
-        pass
-    
-    def compute_reward(self, observation, action):
-        pass
-```
 
 ### Disclaimer
 
