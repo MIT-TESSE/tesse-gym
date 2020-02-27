@@ -29,4 +29,14 @@ setup(
     # tell setuptools that all packages will be under the 'src' directory
     # and nowhere else
     package_dir={'': 'src'},
+    install_requires=[
+        "numpy >= 1.17.3",
+        "scipy >= 1.4.1",
+        "gym >= 0.15.3",
+        "defusedxml >= 0.6.0",
+        "pillow >= 6.2.1",
+        "yacs >= 0.1.6",
+        "tqdm >= 4.42.1",
+        "tesse @ https://github.com/MIT-TESSE/tesse-interface@0.1.2#egg=tesse >= 0.1.2",
+    ],
 )
