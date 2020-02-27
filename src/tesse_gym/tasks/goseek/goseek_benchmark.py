@@ -19,7 +19,9 @@
 # this work.
 ###################################################################################################
 
-from typing import Dict, List, Optional
+from typing import Dict, List
+
+import tqdm
 
 from tesse.msgs import *
 from tesse_gym.core.utils import NetworkConfig
@@ -39,7 +41,7 @@ class GoSeekBenchmark(Benchmark):
         build_path: str,
         network_config: NetworkConfig,
         success_dist: int,
-        random_seeds: Optional[List[bool]] = None,
+        random_seeds: List[bool] = None,
         ground_truth_mode: bool = True,
     ):
         """ Configure evaluation.
@@ -50,7 +52,7 @@ class GoSeekBenchmark(Benchmark):
             n_targets (List[int]): Number of targets.
             build_path (str): Path to TESSE build.
             success_dist (int): Maximum distance from target to be considered found.
-            random_seeds (Optional(List[int])): Optional random seeds for each episode.
+            random_seeds (List[int]): Optional random seeds for each episode.
         """
         super().__init__()
         self.scenes = scenes
@@ -69,7 +71,7 @@ class GoSeekBenchmark(Benchmark):
         )
 
     def evaluate(self, agent: Agent) -> Dict[str, Dict[str, float]]:
-            """ Evaluate agent.
+        """ Evaluate agent.
 
             Args:
                 agent (Agent): Agent to be evaluated.
@@ -78,55 +80,51 @@ class GoSeekBenchmark(Benchmark):
                 Dict[str, Dict[str, float]]: Results for each scene
                     and an overall performance summary.
             """
-            results = {}
-            for episode in range(len(self.scenes)):
-                print(f"Evaluation episode on scene: {episode}")
-                n_found_targets = 0
-                n_predictions = 0
-                n_successful_predictions = 0
-                n_collisions = 0
-                step = 0
+        results = {}
+        for episode in range(len(self.scenes)):
+            print(f"Evaluation episode on episode {episode}, scene {self.scenes[episode]}")
+            n_found_targets = 0
+            n_predictions = 0
+            n_successful_predictions = 0
+            n_collisions = 0
+            step = 0
 
-                if episode > 1:  # scene 1 is set during initialization
-                    self.env.env.request(SceneRequest(self.scenes[episode]))
-                if self.random_seeds:
-                    self.env.env.request(SetRandomSeed(self.random_seeds[episode]))
-                self.env.n_targets = self.n_targets[episode]
-                agent.reset()
-                obs = self.env.reset()
+            self.env.n_targets = self.n_targets[episode]
+            agent.reset()
+            obs = self.env.reset(scene_id=self.scenes[episode], random_seed=self.random_seeds[episode])
 
-                for step in range(self.episode_length[episode]):
-                    action = agent.act(obs)
-                    obs, reward, done, info = self.env.step(action)
-                    n_found_targets += info["n_found_targets"]
+            for step in tqdm.tqdm(range(self.episode_length[episode])):
+                action = agent.act(obs)
+                obs, reward, done, info = self.env.step(action)
+                n_found_targets += info["n_found_targets"]
 
-                    if action == 3:
-                        n_predictions += 1
-                        n_successful_predictions += 1 if info["n_found_targets"] else 0
-                    if info["collision"]:
-                        n_collisions += 1
-                    if done:
-                        break
+                if action == 3:
+                    n_predictions += 1
+                    n_successful_predictions += 1 if info["n_found_targets"] else 0
+                if info["collision"]:
+                    n_collisions += 1
+                if done:
+                    break
 
-                precision = n_successful_predictions / n_predictions
-                recall = n_found_targets / self.env.n_targets
-                results[str(episode)] = {
-                    "found_targets": n_found_targets,
-                    "precision": precision,
-                    "recall": recall,
-                    "collisions": n_collisions,
-                    "steps": step + 1,
-                }
-
-            self.env.close()
-
-            # combine scene results
-            results["total"] = {
-                metric: sum([scene_result[metric] for scene_result in results.values()])
-                for metric in EVALUATION_METRICS
+            precision = 1 if n_predictions == 0 else n_successful_predictions / n_predictions
+            recall = n_found_targets / self.env.n_targets
+            results[str(episode)] = {
+                "found_targets": n_found_targets,
+                "precision": precision,
+                "recall": recall,
+                "collisions": n_collisions,
+                "steps": step + 1,
             }
 
-            for metric in ["precision", "recall"]:
-                results["total"][metric] /= len(self.scenes)
+        self.env.close()
 
-            return results
+        # combine scene results
+        results["total"] = {
+            metric: sum([scene_result[metric] for scene_result in results.values()])
+            for metric in EVALUATION_METRICS
+        }
+
+        for metric in ["precision", "recall"]:
+            results["total"][metric] /= len(self.scenes)
+
+        return results

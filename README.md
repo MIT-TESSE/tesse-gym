@@ -3,7 +3,7 @@
 Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
 
 
-Treasure Hunt |  Navigation
+GOSEEK |  Navigation
 :----------:|:---------------:
 ![](docs/hunt-1.gif) | ![](docs/nav-1.gif)
 
@@ -14,17 +14,16 @@ Using [Anaconda](https://www.anaconda.com/distribution/#download-section) or [mi
 
 1. If using conda, create a new environment
 ```sh
-conda create -n tesse_gym python=3.7
-conda activate tesse_gym
+conda create -n goseek python=3.7 ipython jupyter numpy scipy
+conda activate goseek
 ```
 
-2. Clone this repository, install dependencies, then install tesse-gym. *NOTE*: This requires access to [tesse-interface](https://github.mit.edu/TESS/tesse-interface). 
+2. Clone and install this repository. 
 ```sh
-git clone git@github.mit.edu:TESS/tesse-gym.git
+git clone https://github.com/MIT-TESSE/tesse-gym.git
 cd tesse-gym
 
-pip install -r requirements.txt
-python setup.py develop
+python setup.py install
 
 cd ..
 ```
@@ -40,33 +39,37 @@ More specifically, the agent can select from one of four actions at each decisio
 
 ### Quick Start
 
-See the [example notebook](baselines/goseek-ppo.ipynb) to train an agent.
+To run the example PPO baseline, install [Stable Baselines](https://stable-baselines.readthedocs.io/en/master/) and a version of [Tensorflow](https://www.tensorflow.org/) between v0.8.0 and v1.14.0 (see the [Stable Baselines docs](https://stable-baselines.readthedocs.io/en/master/guide/install.html#prerequisites) for details).
+
+__Note__: Currently, we've tested Python 3.7 Tensorflow installation with Anaconda against Cuda 10.0-10.2 (run `nvcc -V` to check your Cuda version).
+
+For Cuda 10.0, we'd recommend installing `tensorflow-gpu v1.13.1`:
+
+```sh
+conda activate goseek 
+conda install tensorflow-gpu==1.13.1
+```
+
+For Cuda 10.1 and 10.2, we'd recommend installing `tensorflow-gpu v1.14`:
+
+```sh
+conda activate goseek 
+conda install tensorflow-gpu==1.14
+```
+
+Then, install [Stable Baselines](https://stable-baselines.readthedocs.io/en/master/)
+
+```sh
+conda activate goseek 
+pip install stable-baselines
+```
+
+Then, see the [example notebook](baselines/goseek-ppo.ipynb) to train an agent.
 
 ### Challenge Details 
 
-See the [GOSEEK Challenge](https://github.mit.edu/TESS/goseek-challenge) landing page for details on setup, evaluation, and submission.
+See the [GOSEEK Challenge](../../../goseek-challenge) landing page for details on setup, evaluation, and submission.
 
-## Other Tasks
-
-### Navigation
-
-The agent must move throughout it's environment without collisions. See  the [example notebook](baselines/navigation.ipynb) to get started.
-
-### New Tasks
-At a minimum, a new task will inherit `tess_gym.TesseGym` and impliment the following:
-
-```python
-class CustomTask(TesseGym):
-    @property
-    def action_space(self):
-        pass
-    
-    def apply_action(self, action):
-        pass
-    
-    def compute_reward(self, observation, action):
-        pass
-```
 
 ### Disclaimer
 

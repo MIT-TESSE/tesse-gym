@@ -22,11 +22,25 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='tesse_gym',
-    version='0.1.1',
-    description='TESSE OpenAI Gym python interface',
-    packages=find_packages('src'),
+    name="tesse_gym",
+    version="0.1.2",
+    description="TESSE OpenAI Gym python interface",
+    packages=find_packages("src"),
     # tell setuptools that all packages will be under the 'src' directory
     # and nowhere else
-    package_dir={'': 'src'},
+    python_requires=">=3.7",
+    package_dir={"": "src"},
+    install_requires=[
+        "numpy >= 1.17.3",
+        "scipy >= 1.4.1",
+        "gym >= 0.15.3",
+        "defusedxml >= 0.6.0",
+        "pillow >= 6.2.1",
+        "yacs >= 0.1.6",
+        "tqdm >= 4.42.1",
+        "tesse@git+https://git@github.com/MIT-TESSE/tesse-interface.git@0.1.2#egg=tesse",
+    ],
+    dependency_links=[
+        "git+https://git@github.com/MIT-TESSE/tesse-interface.git@0.1.2#egg=tesse"
+    ],
 )
