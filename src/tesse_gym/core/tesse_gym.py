@@ -20,6 +20,7 @@
 ###################################################################################################
 
 import atexit
+from pathlib import Path
 import subprocess
 import time
 from typing import Any, Callable, Dict, Optional, Tuple, Union
@@ -53,7 +54,7 @@ class TesseGym(GymEnv):
 
     def __init__(
         self,
-        sim_path: Union[str, None],
+        sim_path: Union[str, Path, None],
         network_config: Optional[NetworkConfig] = get_network_config(),
         scene_id: Optional[int] = None,
         episode_length: Optional[int] = 300,
@@ -80,9 +81,8 @@ class TesseGym(GymEnv):
         """
         atexit.register(self.close)
 
-        # launch Unity if in training mode
-        # otherwise, assume Unity is already running (e.g. for Kimera)
-        self.launch_tesse = isinstance(sim_path, str) and sim_path is not ""
+        # launch TESSE if a non-empty path is given. Otherwise, assume TESSE is already running
+        self.launch_tesse = isinstance(sim_path, (str, Path)) and sim_path not in ("", Path())
         if self.launch_tesse:
             self.proc = subprocess.Popen(
                 [
