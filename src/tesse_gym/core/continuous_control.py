@@ -367,6 +367,10 @@ class ContinuousController:
         self.env.send(StepWithForce(force_z, torque_y, force_x))
         return force_z, z_error_body
 
+    def get_current_time(self) -> float:
+        """ Get current sim time. """
+        return float(ET.fromstring(self.last_metadata).find("time").text)
+
     def close(self):
         """ Called upon destruction, join UDP listener. """
         self.udp_listener.join()
