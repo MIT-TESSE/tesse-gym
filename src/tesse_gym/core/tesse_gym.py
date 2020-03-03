@@ -130,7 +130,7 @@ class TesseGym(GymEnv):
 
         if not self.ground_truth_mode:
             self.continuous_controller = ContinuousController(
-                self.env, framerate=step_rate
+                env=self.env, framerate=step_rate
             )
 
         self.episode_length = episode_length

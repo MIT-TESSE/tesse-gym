@@ -118,14 +118,13 @@ class GoSeek(TesseGym):
 
         Returns:
             DataResponse: The `DataResponse` object. """
-        cameras = [
-            (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
-            (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
-        ]
+        cameras = [(Camera.RGB_LEFT, Compression.OFF, Channels.THREE)]
         agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
         return agent_data
 
-    def reset(self, scene_id: Optional[int] = None, random_seed: Optional[int] = None) -> np.ndarray:
+    def reset(
+        self, scene_id: Optional[int] = None, random_seed: Optional[int] = None
+    ) -> np.ndarray:
         """ Reset environment and respawn agent.
 
         Args:
@@ -136,6 +135,8 @@ class GoSeek(TesseGym):
             np.ndarray: Agent's observation. """
         self.env.send(EpisodeResetSignal())
         super().reset(scene_id, random_seed)
+
+        self.env.request(RemoveObjectsRequest())
         self.n_found_targets = 0
 
         for i in range(self.n_targets):
@@ -143,8 +144,10 @@ class GoSeek(TesseGym):
                 SpawnObjectRequest(i % self.n_target_types, ObjectSpawnMethod.RANDOM)
             )
 
-        if self.step_mode:
-            self.advance_game_time(1)  # respawn doesn't advance game time
+        # respawn doesn't advance game time
+        # if running an external perception server, advance game time to refresh
+        if not self.ground_truth_mode:
+            self.advance_game_time(1)
 
         self._init_pose()
 
@@ -158,10 +161,10 @@ class GoSeek(TesseGym):
         """
         if action == 0:  # move forward 0.5m
             self.transform(0, 0.5, 0)
-        elif action == 1:
-            self.transform(0, 0, 8)  # turn right 8 degrees
-        elif action == 2:
-            self.transform(0, 0, -8)  # turn left 8 degrees
+        elif action == 1:  # turn right 8 degrees
+            self.transform(0, 0, 8)
+        elif action == 2:  # turn left 8 degrees
+            self.transform(0, 0, -8)
         elif action != 3:
             raise ValueError(f"Unexpected action {action}")
 
@@ -172,29 +175,29 @@ class GoSeek(TesseGym):
 
         Reward consists of:
             - Small time penalty
-            - If the agent is (1) within `success_dist`, (2) has the target in its FOV,
-                and (3) executes action 3, it receives a reward equal to the
-                number of targets found times `self.target_found_reward`
+            - n_targets_found * `target_found_reward` if `action` == 3.
+                n_targets_found is the number of targets that are
+                (1) within `success_dist` of agent and (2) within
+                a bearing of `CAMERA_FOV` degrees.
 
         Args:
-            observation (DataResponse): Images and metadata used to
-                compute the reward.
-            action (action_space): Action taken by agent.
+            observation (DataResponse): TESSE DataResponse object containing images
+                and metadata.
+            action (int): Action taken by agent.
 
         Returns:
             Tuple[float, dict[str, [bool, int]]
-                Reward,
+                Reward
                 Dictionary with the following keys
                     - env_changed: True if agent changed the environment.
                     - collision: True if there was a collision
-
+                    - n_found_targets: Number of targets found during step.
         """
         targets = self.env.request(ObjectsRequest())
-        agent_data = observation
         reward_info = {"env_changed": False, "collision": False, "n_found_targets": 0}
 
         # compute agent's distance from targets
-        agent_position = self._get_agent_position(agent_data.metadata)
+        agent_position = self._get_agent_position(observation.metadata)
         target_ids, target_position = self._get_target_id_and_positions(
             targets.metadata
         )
@@ -204,7 +207,7 @@ class GoSeek(TesseGym):
         # check for found targets
         if target_position.shape[0] > 0 and action == 3:
             found_targets = self.get_found_targets(
-                agent_position, target_position, target_ids, agent_data
+                agent_position, target_position, target_ids, observation.metadata
             )
 
             # if targets are found, update reward and related episode info
@@ -223,7 +226,7 @@ class GoSeek(TesseGym):
         if self.steps > self.episode_length:
             self.done = True
 
-        if self._collision(agent_data.metadata):
+        if self._collision(observation.metadata):
             reward_info["collision"] = True
 
             if self.restart_on_collision:
@@ -236,15 +239,19 @@ class GoSeek(TesseGym):
         agent_position: np.ndarray,
         target_position: np.ndarray,
         target_ids: np.ndarray,
-        agent_data: DataResponse,
+        agent_metadata: str,
     ) -> List[int]:
-        """ Get targets that are within `self.success_dist` of agent and in FOV.
+        """ Get IDs of all found targets
+
+        Targets are considered found when they are:
+            (1) within `success_dist` of the agent.
+            (2) Within a bearing of `CAMERA_FOV` degrees.
 
         Args:
             agent_position (np.ndarray): Agent position in (x, y, z) as a shape (3,) array.
             target_position (np.ndarray): Target positions in (x, y, z) as a shape (n, 3) array.
             target_ids (np.ndarray): Target IDS corresponding to position
-            agent_data (DataResponse): Agent observation data.
+            agent_metadata (str): Agent metadata from TESSE.
 
         Returns:
             List[int]: IDs of found targets.
@@ -256,27 +263,24 @@ class GoSeek(TesseGym):
         target_position = target_position[:, (0, 2)]
         dists = np.linalg.norm(target_position - agent_position, axis=-1)
 
-        # can we see the target?
-        seg = agent_data.images[1]
-        target_in_fov = np.all(seg == self.TARGET_COLOR, axis=-1)
-
-        # if the agent is within `success_dist` of target, can see it,
-        # and gives the `found` action, count as found
-        if dists.min() < self.success_dist and target_in_fov.any():
+        if dists.min() < self.success_dist:
+            # get positions of targets
             targets_in_range = target_ids[dists < self.success_dist]
             found_target_positions = target_position[dists < self.success_dist]
-            agent_orientation = self._get_agent_rotation(agent_data.metadata)[-1]
-            target_heading_relative_agent = self.get_target_orientation(
+
+            # get bearing of targets withing range
+            agent_orientation = self._get_agent_rotation(agent_metadata)[-1]
+            target_bearing = self.get_target_bearing(
                 agent_orientation, found_target_positions, agent_position
             )
-            found_targets = targets_in_range[
-                np.where(target_heading_relative_agent < self.CAMERA_FOV)
-            ]
+
+            # targets that meet distance and bearing requirements
+            found_targets = targets_in_range[np.where(target_bearing < self.CAMERA_FOV)]
 
         return found_targets
 
     @staticmethod
-    def get_target_orientation(
+    def get_target_bearing(
         agent_orientation: float,
         target_positions: np.ndarray,
         agent_position: np.ndarray,
