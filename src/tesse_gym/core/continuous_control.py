@@ -211,13 +211,12 @@ class ContinuousController:
         data = self.get_data()
         self.set_goal(data, translate_x, translate_z, rotate_y)
 
-        # track movement across steps to find collisions
         last_z_err, last_z_rate_err = 0, 0
         collision_count = 0
+        n_steps = 0
 
         # Apply controls until at goal point, a collision occurs, or max steps reached
-        i = 0
-        while not self.at_goal(data) and i < self.max_steps:
+        while not self.at_goal(data) and n_steps < self.max_steps:
             force_z, z_error = self.control(data)
             data = self.get_data()
 
@@ -228,6 +227,7 @@ class ContinuousController:
                 break
 
             last_z_err = z_error
+            n_steps += 1
 
         self.set_goal(data)
 
