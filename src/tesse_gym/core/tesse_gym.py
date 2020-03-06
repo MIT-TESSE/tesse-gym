@@ -50,6 +50,7 @@ class TesseGym(GymEnv):
     )
     shape = (240, 320, 3)
     hover_height = 0.5
+    sim_query_timeout = 10
 
     def __init__(
         self,
@@ -271,27 +272,25 @@ class TesseGym(GymEnv):
             return response
         else:
             # Ensure observations are current with sim by comparing timestamps
-            # Requery observation if it's behind
             requery_limit = 10
             time_advance_frequency = 5
             for attempts in range(requery_limit):
+                # heuristic to account for dropped messages
                 if (attempts + 1) % time_advance_frequency == 0:
                     self.advance_game_time(1)
-                current_time = self.continuous_controller.get_current_time()
-                observation_time = float(
-                    ET.fromstring(response.metadata).find("time").text
-                )
 
-                # if observation time is behind sim time,
-                # query until image server catches up.
-                if np.round(current_time - observation_time, 2) >= 1 / self.step_rate:
-                    response = self.observe()
+                sim_time = self.continuous_controller.get_current_time()
+                observation_time = float(ET.fromstring(response.metadata).find("time").text)
+
+                timediff = np.round(sim_time - observation_time, 2)
+
+                # if observation is synced with sim time, break
+                # otherwise, requery
+                if timediff < 1 / self.step_rate:
+                    break
                 else:
-                    return response
-
-            raise ValueError(
-                f"Could not get latest observations: {np.round(current_time - observation_time, 2)}"
-            )
+                    response = self.observe()
+        return response
 
     def form_agent_observation(self, scene_observation: DataResponse) -> np.ndarray:
         """ Create agent's observation from `DataResponse` message.
