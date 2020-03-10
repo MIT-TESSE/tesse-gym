@@ -281,15 +281,13 @@ class TesseGym(GymEnv):
 
                 sim_time = self.continuous_controller.get_current_time()
                 observation_time = float(ET.fromstring(response.metadata).find("time").text)
-
                 timediff = np.round(sim_time - observation_time, 2)
 
-                # if observation is synced with sim time, break
-                # otherwise, requery
+                # if observation is synced with sim time, break otherwise, requery
                 if timediff < 1 / self.step_rate:
                     break
-                else:
-                    response = self.observe()
+
+                response = self.observe()
         return response
 
     def form_agent_observation(self, scene_observation: DataResponse) -> np.ndarray:
