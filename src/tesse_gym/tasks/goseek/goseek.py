@@ -194,10 +194,18 @@ class GoSeek(TesseGym):
                     - n_found_targets: Number of targets found during step.
         """
         targets = self.env.request(ObjectsRequest())
+
+        # If not in ground truth mode, metadata will only provide position estimates
+        # In that case, get ground truth metadata from the controller
+        agent_metadata = (
+            observation.metadata
+            if self.ground_truth_mode
+            else self.continuous_controller.get_broadcast_metadata()
+        )
         reward_info = {"env_changed": False, "collision": False, "n_found_targets": 0}
 
         # compute agent's distance from targets
-        agent_position = self._get_agent_position(observation.metadata)
+        agent_position = self._get_agent_position(agent_metadata)
         target_ids, target_position = self._get_target_id_and_positions(
             targets.metadata
         )
@@ -207,7 +215,7 @@ class GoSeek(TesseGym):
         # check for found targets
         if target_position.shape[0] > 0 and action == 3:
             found_targets = self.get_found_targets(
-                agent_position, target_position, target_ids, observation.metadata
+                agent_position, target_position, target_ids, agent_metadata
             )
 
             # if targets are found, update reward and related episode info
@@ -226,6 +234,7 @@ class GoSeek(TesseGym):
         if self.steps > self.episode_length:
             self.done = True
 
+        # collision information isn't provided by the controller metadata
         if self._collision(observation.metadata):
             reward_info["collision"] = True
 
