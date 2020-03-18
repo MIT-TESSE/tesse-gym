@@ -264,7 +264,7 @@ class ContinuousController:
         if self.last_metadata is None:
             response = self.env.request(MetadataRequest()).metadata
         else:
-            response = self.last_metadata
+            response = self.get_broadcast_metadata()
         return parse_metadata(response)
 
     def set_goal(
@@ -370,6 +370,10 @@ class ContinuousController:
     def get_current_time(self) -> float:
         """ Get current sim time. """
         return float(ET.fromstring(self.last_metadata).find("time").text)
+
+    def get_broadcast_metadata(self) -> str:
+        """ Get metadata provided by TESSE UDP broadcasts. """
+        return self.last_metadata
 
     def close(self):
         """ Called upon destruction, join UDP listener. """
