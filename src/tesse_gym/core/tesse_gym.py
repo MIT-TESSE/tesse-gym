@@ -237,8 +237,14 @@ class TesseGym(GymEnv):
         self.env.request(Respawn())
         self.done = False
         self.steps = 0
+
+        if not self.ground_truth_mode:
+            observation = self.get_synced_observation()
+        else:
+            observation = self.observe()
+
         self._init_pose()
-        return self.form_agent_observation(self.observe())
+        return self.form_agent_observation(observation)
 
     def render(self, mode: str = "rgb_array") -> np.ndarray:
         """ Get observation.
