@@ -369,7 +369,11 @@ class ContinuousController:
 
     def get_current_time(self) -> float:
         """ Get current sim time. """
-        return float(ET.fromstring(self.last_metadata).find("time").text)
+        # TODO(ZR) specific logic for this needs to be figured out ``
+        if self.last_metadata is None:
+            raise ValueError("Cannot get TESSE time, metadata is `NoneType`")
+        else:
+            return float(ET.fromstring(self.last_metadata).find("time").text)
 
     def get_broadcast_metadata(self) -> str:
         """ Get metadata provided by TESSE UDP broadcasts. """
