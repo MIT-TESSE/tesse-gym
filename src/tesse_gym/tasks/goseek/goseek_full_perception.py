@@ -27,6 +27,7 @@ from gym import spaces
 from tesse.msgs import Camera, Channels, Compression, DataRequest, DataResponse
 
 from tesse_gym.tasks.goseek.goseek import GoSeek
+from tesse_gym.core.utils import response_nonetype_check
 
 
 class GoSeekFullPerception(GoSeek):
@@ -97,7 +98,7 @@ class GoSeekFullPerception(GoSeek):
             (Camera.DEPTH, Compression.OFF, Channels.THREE),
         ]
         agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
-        return agent_data
+        return response_nonetype_check(agent_data)
 
 
 def decode_observations(
