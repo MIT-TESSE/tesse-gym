@@ -20,8 +20,14 @@
 ###################################################################################################
 
 from collections import namedtuple
+from typing import Union
 
-from tesse.msgs import Camera, SetCameraParametersRequest, SetCameraPositionRequest
+from tesse.msgs import (
+    Camera,
+    SetCameraParametersRequest,
+    SetCameraPositionRequest,
+    DataResponse,
+)
 
 NetworkConfig = namedtuple(
     "NetworkConfig",
@@ -174,3 +180,34 @@ def _adjust_camera_position(tesse_gym, camera, x=-0.05, y=0, z=0):
         z (int): z position.
     """
     tesse_gym.env.request(SetCameraPositionRequest(camera=camera, x=x, y=y, z=z))
+
+
+def response_nonetype_check(obs: Union[DataResponse, None]) -> DataResponse:
+    """ Check that data from the sim is not `NoneType`.
+
+    `obs` being `NoneType` indicates that data could
+    not be read from TESSE. Raise an exception if this
+    is the case.
+
+    Args:
+        obs (Union[DataResponse, None]): Response from the simulator.
+
+    Returns:
+        DataResponse: `obs` if `obs` is not `None`.
+
+    Raises:
+        TesseConnectionError
+    """
+    if obs is None:
+        raise TesseConnectionError()
+    return obs
+
+
+class TesseConnectionError(Exception):
+    def __init__(self):
+        """ Indicates data cannot be read from TESSE. """
+        self.message = "Cannot receive data from the simulator. " \
+            "The connection is blocked or the simulator is not running. "
+
+    def __str__(self):
+        return self.message

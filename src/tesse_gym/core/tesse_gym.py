@@ -35,7 +35,12 @@ from tesse.env import Env
 from tesse.msgs import *
 
 from .continuous_control import ContinuousController
-from .utils import NetworkConfig, get_network_config, set_all_camera_params
+from .utils import (
+    NetworkConfig,
+    get_network_config,
+    set_all_camera_params,
+    response_nonetype_check,
+)
 
 
 class TesseGym(GymEnv):
@@ -210,7 +215,8 @@ class TesseGym(GymEnv):
     def observe(self) -> DataResponse:
         """ Observe state. """
         cameras = [(Camera.RGB_LEFT, Compression.OFF, Channels.THREE)]
-        return self.env.request(DataRequest(metadata=True, cameras=cameras))
+        response = self.env.request(DataRequest(metadata=True, cameras=cameras))
+        return response_nonetype_check(response)
 
     def reset(
         self, scene_id: Optional[int] = None, random_seed: Optional[int] = None
@@ -340,9 +346,9 @@ class TesseGym(GymEnv):
 
     def _init_pose(self):
         """ Initialize agent's starting pose """
-        metadata = self.env.request(MetadataRequest()).metadata
-        position = self._get_agent_position(metadata)
-        rotation = self._get_agent_rotation(metadata)
+        metadata_response = response_nonetype_check(self.env.request(MetadataRequest()))
+        position = self._get_agent_position(metadata_response.metadata)
+        rotation = self._get_agent_rotation(metadata_response.metadata)
 
         # initialize position in in agent frame
         initial_yaw = rotation[2]
