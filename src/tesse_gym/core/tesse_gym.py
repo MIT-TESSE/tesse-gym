@@ -367,7 +367,7 @@ class TesseGym(GymEnv):
             try:
                 return response_nonetype_check(self.env.request(request_type))
             except TesseConnectionError:
-                print("trying again")
+                pass
 
         raise TesseConnectionError()
 
