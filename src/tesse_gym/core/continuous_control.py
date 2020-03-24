@@ -28,6 +28,7 @@ from scipy.spatial.transform import Rotation
 
 from tesse.msgs import *
 from tesse.utils import UdpListener
+from tesse_gym.core.utils import TesseConnectionError
 
 # gains 1: 150, 35, 1.6, 0.27
 # gains 2: 200, 35, 1.6, 0.27
@@ -147,6 +148,10 @@ def parse_metadata(metadata: str) -> AgentState:
 
 
 class ContinuousController:
+    INIT_STATE_MAX_ATTEMPTS = 5  # max attempts to read state from simulator
+    FORCE_X_EPS = 0.5
+    FORCE_Z_EPS = 0.5
+    TORQUE_Y_EPS = 0.001
     udp_listener_rate = 200  # frequency in hz at which to listen to UDP broadcasts
     collision_limit = 5  # break current control loop after this many collisions
 
@@ -208,6 +213,13 @@ class ContinuousController:
             rotate_y (float): Desired rotation (in radians) relative to agent.
         """
         data = self.get_data()
+
+        # if the agent's state is unknown, send small force values in the
+        # desired direction until the state can be acquired
+        if data is None:
+            self._init_state(translate_x, translate_z, rotate_y)
+            data = self.get_data()
+
         self.set_goal(data, translate_x, translate_z, rotate_y)
 
         last_z_err, last_z_rate_err = 0, 0
@@ -229,6 +241,38 @@ class ContinuousController:
             n_steps += 1
 
         self.set_goal(data)
+
+    def _init_state(self, translate_x, translate_z, rotate_y):
+        """ Initialize agent's state.
+
+        If the controller does not know the agent's state,
+        which happens if the simulator has not broadcast 
+        metadata, apply small force values in the desired 
+        direction. This will advance the agent towards the 
+        goal while triggering metadata broadcast describing 
+        the agent's state.
+
+        Args:
+            translate_x (float): Desired x translation.
+            translate_z (float): Desired z translation.
+            rotate_y (float): Desired y rotation in radians.
+
+        Raises:
+            TesseConnectionError: Thrown if data has not 
+                been recieved from the simulator after 
+                `self.INIT_STATE_MAX_ATTEMPTS`, indicating 
+                a bad connection.
+        """
+        force_x = np.sign(translate_x) * self.FORCE_X_EPS
+        force_z = np.sign(translate_z) * self.FORCE_Z_EPS
+        torque_y = np.sign(rotate_y) * self.TORQUE_Y_EPS
+
+        for _ in range(self.INIT_STATE_MAX_ATTEMPTS):
+            self.env.send(StepWithForce(force_z, torque_y, force_x))
+            if self.get_broadcast_metadata() is not None:
+                return
+
+        raise TesseConnectionError()  # if the agent's state can't be established
 
     def _in_collision(
         self, force_z: float, z_pos_error: float, last_z_pos_err: float
@@ -260,11 +304,11 @@ class ContinuousController:
 
     def get_data(self) -> AgentState:
         """ Gets agent's most recent data. """
-        if self.last_metadata is None:
-            response = self.env.request(MetadataRequest()).metadata
+        response = self.get_broadcast_metadata()
+        if response is not None:
+            return parse_metadata(response)
         else:
-            response = self.get_broadcast_metadata()
-        return parse_metadata(response)
+            return None
 
     def set_goal(
         self,
@@ -370,9 +414,8 @@ class ContinuousController:
         """ Get current sim time. """
         # TODO(ZR) specific logic for this needs to be figured out ``
         if self.last_metadata is None:
-            raise ValueError("Cannot get TESSE time, metadata is `NoneType`")
-        else:
-            return float(ET.fromstring(self.last_metadata).find("time").text)
+            self._init_state(0, 0, 0)
+        return float(ET.fromstring(self.last_metadata).find("time").text)
 
     def get_broadcast_metadata(self) -> str:
         """ Get metadata provided by TESSE UDP broadcasts. """

@@ -292,7 +292,9 @@ class TesseGym(GymEnv):
                     self.advance_game_time(1)
 
                 sim_time = self.continuous_controller.get_current_time()
-                observation_time = float(ET.fromstring(response.metadata).find("time").text)
+                observation_time = float(
+                    ET.fromstring(response.metadata).find("time").text
+                )
                 timediff = np.round(sim_time - observation_time, 2)
 
                 # if observation is synced with sim time, break otherwise, requery
@@ -379,7 +381,7 @@ class TesseGym(GymEnv):
             try:
                 return response_nonetype_check(self.env.request(request_type))
             except TesseConnectionError:
-                print("trying again")
+                pass
 
         raise TesseConnectionError()
 
