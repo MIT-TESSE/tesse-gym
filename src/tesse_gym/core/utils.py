@@ -24,9 +24,9 @@ from typing import Union
 
 from tesse.msgs import (
     Camera,
+    DataResponse,
     SetCameraParametersRequest,
     SetCameraPositionRequest,
-    DataResponse,
 )
 
 NetworkConfig = namedtuple(
@@ -206,8 +206,10 @@ def response_nonetype_check(obs: Union[DataResponse, None]) -> DataResponse:
 class TesseConnectionError(Exception):
     def __init__(self):
         """ Indicates data cannot be read from TESSE. """
-        self.message = "Cannot receive data from the simulator. " \
+        self.message = (
+            "Cannot receive data from the simulator. "
             "The connection is blocked or the simulator is not running. "
+        )
 
     def __str__(self):
         return self.message

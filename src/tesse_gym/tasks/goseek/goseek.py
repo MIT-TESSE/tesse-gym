@@ -38,7 +38,7 @@ from tesse.msgs import (
     SpawnObjectRequest,
 )
 from tesse_gym.core.tesse_gym import TesseGym
-from tesse_gym.core.utils import NetworkConfig, response_nonetype_check
+from tesse_gym.core.utils import NetworkConfig
 
 
 # define custom message to signal episode reset
@@ -119,8 +119,7 @@ class GoSeek(TesseGym):
         Returns:
             DataResponse: The `DataResponse` object. """
         cameras = [(Camera.RGB_LEFT, Compression.OFF, Channels.THREE)]
-        agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
-        return response_nonetype_check(agent_data)
+        return self._data_request(DataRequest(metadata=True, cameras=cameras))
 
     def reset(
         self, scene_id: Optional[int] = None, random_seed: Optional[int] = None
