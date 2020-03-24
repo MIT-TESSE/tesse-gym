@@ -82,7 +82,9 @@ class GoSeekBenchmark(Benchmark):
             """
         results = {}
         for episode in range(len(self.scenes)):
-            print(f"Evaluation episode on episode {episode}, scene {self.scenes[episode]}")
+            print(
+                f"Evaluation episode on episode {episode}, scene {self.scenes[episode]}"
+            )
             n_found_targets = 0
             n_predictions = 0
             n_successful_predictions = 0
@@ -91,7 +93,9 @@ class GoSeekBenchmark(Benchmark):
 
             self.env.n_targets = self.n_targets[episode]
             agent.reset()
-            obs = self.env.reset(scene_id=self.scenes[episode], random_seed=self.random_seeds[episode])
+            obs = self.env.reset(
+                scene_id=self.scenes[episode], random_seed=self.random_seeds[episode]
+            )
 
             for step in tqdm.tqdm(range(self.episode_length[episode])):
                 action = agent.act(obs)
@@ -106,7 +110,9 @@ class GoSeekBenchmark(Benchmark):
                 if done:
                     break
 
-            precision = 1 if n_predictions == 0 else n_successful_predictions / n_predictions
+            precision = (
+                1 if n_predictions == 0 else n_successful_predictions / n_predictions
+            )
             recall = n_found_targets / self.env.n_targets
             results[str(episode)] = {
                 "found_targets": n_found_targets,

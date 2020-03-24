@@ -29,7 +29,6 @@ from scipy.spatial.transform import Rotation
 from tesse.msgs import *
 from tesse.utils import UdpListener
 
-
 # gains 1: 150, 35, 1.6, 0.27
 # gains 2: 200, 35, 1.6, 0.27
 
