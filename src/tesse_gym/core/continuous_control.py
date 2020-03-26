@@ -412,7 +412,6 @@ class ContinuousController:
 
     def get_current_time(self) -> float:
         """ Get current sim time. """
-        # TODO(ZR) specific logic for this needs to be figured out ``
         if self.last_metadata is None:
             self._init_state(0, 0, 0)
         return float(ET.fromstring(self.last_metadata).find("time").text)
