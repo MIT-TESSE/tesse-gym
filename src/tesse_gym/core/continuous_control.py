@@ -29,7 +29,6 @@ from scipy.spatial.transform import Rotation
 from tesse.msgs import *
 from tesse.utils import UdpListener
 
-
 # gains 1: 150, 35, 1.6, 0.27
 # gains 2: 200, 35, 1.6, 0.27
 
@@ -211,13 +210,12 @@ class ContinuousController:
         data = self.get_data()
         self.set_goal(data, translate_x, translate_z, rotate_y)
 
-        # track movement across steps to find collisions
         last_z_err, last_z_rate_err = 0, 0
         collision_count = 0
+        n_steps = 0
 
         # Apply controls until at goal point, a collision occurs, or max steps reached
-        i = 0
-        while not self.at_goal(data) and i < self.max_steps:
+        while not self.at_goal(data) and n_steps < self.max_steps:
             force_z, z_error = self.control(data)
             data = self.get_data()
 
@@ -228,6 +226,7 @@ class ContinuousController:
                 break
 
             last_z_err = z_error
+            n_steps += 1
 
         self.set_goal(data)
 
@@ -264,7 +263,7 @@ class ContinuousController:
         if self.last_metadata is None:
             response = self.env.request(MetadataRequest()).metadata
         else:
-            response = self.last_metadata
+            response = self.get_broadcast_metadata()
         return parse_metadata(response)
 
     def set_goal(
@@ -366,6 +365,17 @@ class ContinuousController:
 
         self.env.send(StepWithForce(force_z, torque_y, force_x))
         return force_z, z_error_body
+
+    def get_current_time(self) -> float:
+        """ Get current sim time. """
+        if self.last_metadata is None:
+            raise ValueError("Cannot get TESSE time, metadata is `NoneType`")
+        else:
+            return float(ET.fromstring(self.last_metadata).find("time").text)
+
+    def get_broadcast_metadata(self) -> str:
+        """ Get metadata provided by TESSE UDP broadcasts. """
+        return self.last_metadata
 
     def close(self):
         """ Called upon destruction, join UDP listener. """
