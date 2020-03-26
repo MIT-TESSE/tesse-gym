@@ -96,8 +96,7 @@ class GoSeekFullPerception(GoSeek):
             (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
             (Camera.DEPTH, Compression.OFF, Channels.THREE),
         ]
-        agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
-        return agent_data
+        return self._data_request(DataRequest(metadata=True, cameras=cameras))
 
 
 def decode_observations(
