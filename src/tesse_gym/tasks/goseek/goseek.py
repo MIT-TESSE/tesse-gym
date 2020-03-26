@@ -119,8 +119,7 @@ class GoSeek(TesseGym):
         Returns:
             DataResponse: The `DataResponse` object. """
         cameras = [(Camera.RGB_LEFT, Compression.OFF, Channels.THREE)]
-        agent_data = self.env.request(DataRequest(metadata=True, cameras=cameras))
-        return agent_data
+        return self._data_request(DataRequest(metadata=True, cameras=cameras))
 
     def reset(
         self, scene_id: Optional[int] = None, random_seed: Optional[int] = None
