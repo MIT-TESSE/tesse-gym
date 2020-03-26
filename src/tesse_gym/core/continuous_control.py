@@ -368,7 +368,6 @@ class ContinuousController:
 
     def get_current_time(self) -> float:
         """ Get current sim time. """
-        # TODO(ZR) specific logic for this needs to be figured out ``
         if self.last_metadata is None:
             raise ValueError("Cannot get TESSE time, metadata is `NoneType`")
         else:
