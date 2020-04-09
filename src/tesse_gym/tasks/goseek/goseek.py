@@ -148,8 +148,6 @@ class GoSeek(TesseGym):
         if not self.ground_truth_mode:
             self.advance_game_time(1)
 
-        self._init_pose()
-
         return self.form_agent_observation(self.observe())
 
     def apply_action(self, action: int) -> None:

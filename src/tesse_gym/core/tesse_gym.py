@@ -156,7 +156,6 @@ class TesseGym(GymEnv):
         self.initial_pose = np.zeros((3,))
         self.initial_rotation = np.eye(2)
         self.relative_pose = np.zeros((3,))
-        self._init_pose()
 
     def advance_game_time(self, n_steps: int) -> None:
         """ Advance game time in step mode by sending step forces of 0 to TESSE. """
@@ -249,7 +248,7 @@ class TesseGym(GymEnv):
         else:
             observation = self.observe()
 
-        self._init_pose()
+        self._init_pose(observation.metadata)
         return self.form_agent_observation(observation)
 
     def render(self, mode: str = "rgb_array") -> np.ndarray:
@@ -385,12 +384,13 @@ class TesseGym(GymEnv):
 
         raise TesseConnectionError()
 
-    def _init_pose(self):
+    def _init_pose(self, metadata=None):
         """ Initialize agent's starting pose """
-        metadata_response = self._data_request(MetadataRequest())
+        if metadata is None:
+            metadata = self._data_request(MetadataRequest()).metadata
 
-        position = self._get_agent_position(metadata_response.metadata)
-        rotation = self._get_agent_rotation(metadata_response.metadata)
+        position = self._get_agent_position(metadata)
+        rotation = self._get_agent_rotation(metadata)
 
         # initialize position in in agent frame
         initial_yaw = rotation[2]
