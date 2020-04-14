@@ -145,9 +145,9 @@ class TesseGym(GymEnv):
         self.steps = 0
 
         self.env.request(SetHoverHeight(self.hover_height))
-        self.env.send((ColliderRequest(1)))
+        self.env.send(ColliderRequest(1))
 
-        #  any experiment specific settings go here
+        # optionally adjust parameters on startup
         if init_hook and self.launch_tesse:
             init_hook(self)
 

@@ -38,7 +38,7 @@ from tesse.msgs import (
     SpawnObjectRequest,
 )
 from tesse_gym.core.tesse_gym import TesseGym
-from tesse_gym.core.utils import NetworkConfig
+from tesse_gym.core.utils import NetworkConfig, set_all_camera_params
 
 
 # define custom message to signal episode reset
@@ -49,7 +49,8 @@ class EpisodeResetSignal(MetadataMessage):
 
 class GoSeek(TesseGym):
     TARGET_COLOR = (10, 138, 80)
-    CAMERA_FOV = 60
+    CAMERA_HFOV = 80
+    CAMERA_REL_AGENT = np.array([-0.05, 0])
 
     def __init__(
         self,
@@ -61,7 +62,7 @@ class GoSeek(TesseGym):
         n_targets: Optional[int] = 30,
         success_dist: Optional[float] = 2,
         restart_on_collision: Optional[bool] = False,
-        init_hook: Optional[Callable[[TesseGym], None]] = None,
+        init_hook: Optional[Callable[[TesseGym], None]] = set_all_camera_params,
         target_found_reward: Optional[int] = 1,
         ground_truth_mode: Optional[bool] = True,
         n_target_types: Optional[int] = 1,
@@ -266,22 +267,28 @@ class GoSeek(TesseGym):
 
         # only compare (x, z) coordinates
         agent_position = agent_position[np.newaxis, (0, 2)]
+
+        # get bearing and distance of targets w.r.t the left camera
+        # get left camera position in world coordinates
+        agent_orientation = self._get_agent_rotation(agent_metadata)[-1]
+        left_camera_position = agent_position + np.matmul(
+            self.get_2d_rotation_mtrx(agent_orientation), self.CAMERA_REL_AGENT
+        )
+
         target_position = target_position[:, (0, 2)]
-        dists = np.linalg.norm(target_position - agent_position, axis=-1)
+        dists = np.linalg.norm(target_position - left_camera_position, axis=-1)
 
         if dists.min() < self.success_dist:
             # get positions of targets
             targets_in_range = target_ids[dists < self.success_dist]
             found_target_positions = target_position[dists < self.success_dist]
 
-            # get bearing of targets withing range
-            agent_orientation = self._get_agent_rotation(agent_metadata)[-1]
             target_bearing = self.get_target_bearing(
-                agent_orientation, found_target_positions, agent_position
+                agent_orientation, found_target_positions, left_camera_position
             )
 
             # targets that meet distance and bearing requirements
-            found_targets = targets_in_range[np.where(target_bearing < self.CAMERA_FOV)]
+            found_targets = targets_in_range[np.where(target_bearing < self.CAMERA_HFOV / 2)]
 
         return found_targets
 
