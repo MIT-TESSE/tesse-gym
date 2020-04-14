@@ -56,6 +56,7 @@ class TesseGym(GymEnv):
     )
     shape = (240, 320, 3)
     hover_height = 0.5
+    sim_query_timeout = 10
 
     def __init__(
         self,
@@ -144,9 +145,9 @@ class TesseGym(GymEnv):
         self.steps = 0
 
         self.env.request(SetHoverHeight(self.hover_height))
-        self.env.send((ColliderRequest(1)))
+        self.env.send(ColliderRequest(1))
 
-        #  any experiment specific settings go here
+        # optionally adjust parameters on startup
         if init_hook and self.launch_tesse:
             init_hook(self)
 
@@ -155,7 +156,6 @@ class TesseGym(GymEnv):
         self.initial_pose = np.zeros((3,))
         self.initial_rotation = np.eye(2)
         self.relative_pose = np.zeros((3,))
-        self._init_pose()
 
     def advance_game_time(self, n_steps: int) -> None:
         """ Advance game time in step mode by sending step forces of 0 to TESSE. """
@@ -207,6 +207,9 @@ class TesseGym(GymEnv):
         reward, reward_info = self.compute_reward(response, action)
 
         if reward_info["env_changed"] and not self.done:
+            # environment changes will not advance game time
+            # advance here so the perception server will be up to date
+            self.advance_game_time(1)
             response = self.get_synced_observation()
 
         self._update_pose(response.metadata)
@@ -239,8 +242,14 @@ class TesseGym(GymEnv):
         self.env.request(Respawn())
         self.done = False
         self.steps = 0
-        self._init_pose()
-        return self.form_agent_observation(self.observe())
+
+        if not self.ground_truth_mode:
+            observation = self.get_synced_observation()
+        else:
+            observation = self.observe()
+
+        self._init_pose(observation.metadata)
+        return self.form_agent_observation(observation)
 
     def render(self, mode: str = "rgb_array") -> np.ndarray:
         """ Get observation.
@@ -269,25 +278,29 @@ class TesseGym(GymEnv):
         Returns:
             DataResponse
         """
+        response = self.observe()
         if self.launch_tesse or self.ground_truth_mode:
-            response = self.observe()
+            return response
         else:
-            self.advance_game_time(1)  # advance game time to capture env changes
-            while True:
-                response = self.observe()
-                t1 = float(
-                    ET.fromstring(self.continuous_controller.last_metadata)
-                    .find("time")
-                    .text
-                )
-                t2 = float(ET.fromstring(response.metadata).find("time").text)
-                timediff = np.round(t1 - t2, 2)
+            # Ensure observations are current with sim by comparing timestamps
+            requery_limit = 10
+            time_advance_frequency = 5
+            for attempts in range(requery_limit):
+                # heuristic to account for dropped messages
+                if (attempts + 1) % time_advance_frequency == 0:
+                    self.advance_game_time(1)
 
-                # if observation is late, query until image server catches up.
+                sim_time = self.continuous_controller.get_current_time()
+                observation_time = float(
+                    ET.fromstring(response.metadata).find("time").text
+                )
+                timediff = np.round(sim_time - observation_time, 2)
+
+                # if observation is synced with sim time, break otherwise, requery
                 if timediff < 1 / self.step_rate:
                     break
-                else:
-                    response = self.observe()
+
+                response = self.observe()
         return response
 
     def form_agent_observation(self, scene_observation: DataResponse) -> np.ndarray:
@@ -371,12 +384,13 @@ class TesseGym(GymEnv):
 
         raise TesseConnectionError()
 
-    def _init_pose(self):
+    def _init_pose(self, metadata=None):
         """ Initialize agent's starting pose """
-        metadata_response = self._data_request(MetadataRequest())
+        if metadata is None:
+            metadata = self._data_request(MetadataRequest()).metadata
 
-        position = self._get_agent_position(metadata_response.metadata)
-        rotation = self._get_agent_rotation(metadata_response.metadata)
+        position = self._get_agent_position(metadata)
+        rotation = self._get_agent_rotation(metadata)
 
         # initialize position in in agent frame
         initial_yaw = rotation[2]

@@ -25,7 +25,6 @@ import numpy as np
 from gym import spaces
 
 from tesse.msgs import Camera, Channels, Compression, DataRequest, DataResponse
-
 from tesse_gym.tasks.goseek.goseek import GoSeek
 
 
@@ -80,9 +79,6 @@ class GoSeekFullPerception(GoSeek):
             axis=-1,
         ).reshape(-1)
         pose = self.get_pose().reshape((3))
-
-        if (np.abs(pose) > 100).any():
-            raise ValueError("Pose is out of observation space")
         return np.concatenate((observation, pose))
 
     def observe(self) -> DataResponse:
