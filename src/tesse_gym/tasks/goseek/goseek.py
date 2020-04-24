@@ -58,14 +58,14 @@ class GoSeek(TesseGym):
         network_config: Optional[NetworkConfig] = NetworkConfig(),
         scene_id: Optional[int] = None,
         episode_length: Optional[int] = 400,
-        step_rate: Optional[int] = -1,
+        step_rate: Optional[int] = 20,
         n_targets: Optional[int] = 30,
         success_dist: Optional[float] = 2,
         restart_on_collision: Optional[bool] = False,
         init_hook: Optional[Callable[[TesseGym], None]] = set_all_camera_params,
         target_found_reward: Optional[int] = 1,
         ground_truth_mode: Optional[bool] = True,
-        n_target_types: Optional[int] = 1,
+        n_target_types: Optional[int] = 5,
     ):
         """ Initialize the TESSE treasure hunt environment.
 
@@ -86,7 +86,8 @@ class GoSeek(TesseGym):
                 assumes an external perception pipeline is running. In the latter mode, discrete
                 steps will be translated to continuous control commands and observations will be
                 explicitly synced with sim time.
-            n_target_types (int): Number of target types available to spawn.
+            n_target_types (int): Number of target types available to spawn. GOSEEK challenge 
+                has 5 target types by default. 
         """
         super().__init__(
             build_path,
@@ -149,7 +150,8 @@ class GoSeek(TesseGym):
         if not self.ground_truth_mode:
             self.advance_game_time(1)
 
-        return self.form_agent_observation(self.observe())
+        observation = self.get_synced_observation()
+        return self.form_agent_observation(observation)
 
     def apply_action(self, action: int) -> None:
         """ Make agent take the specified action.
