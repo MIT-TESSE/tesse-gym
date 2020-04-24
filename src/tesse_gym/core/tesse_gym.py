@@ -209,7 +209,8 @@ class TesseGym(GymEnv):
         if reward_info["env_changed"] and not self.done:
             # environment changes will not advance game time
             # advance here so the perception server will be up to date
-            self.advance_game_time(1)
+            if not self.ground_truth_mode:
+                self.advance_game_time(1)
             response = self.get_synced_observation()
 
         self._update_pose(response.metadata)
@@ -243,10 +244,7 @@ class TesseGym(GymEnv):
         self.done = False
         self.steps = 0
 
-        if not self.ground_truth_mode:
-            observation = self.get_synced_observation()
-        else:
-            observation = self.observe()
+        observation = self.get_synced_observation()
 
         self._init_pose(observation.metadata)
         return self.form_agent_observation(observation)
