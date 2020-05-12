@@ -79,6 +79,20 @@ PDGains = namedtuple(
 )
 
 
+# Alternative gains
+# TODO(ZR) remove when stable
+# self.normal_gains = PDGains(pos_error_gain=150,
+#                             pos_error_rate_gain=35,
+#                             yaw_error_gain=1.6,
+#                             yaw_error_rate_gain=0.27)
+#
+# self.manual_mode_gains = PDGains(pos_error_gain=25,
+#                                  pos_error_rate_gain=10,
+#                                  yaw_error_gain=.3,
+#                                  yaw_error_rate_gain=0.27)
+#
+
+
 def get_attributes(
     root: Element, element: str, attributes: Tuple[str, ...]
 ) -> List[float]:
@@ -188,6 +202,25 @@ class ContinuousController:
         self.env.send(SetFrameRate(framerate))  # Put sim into step mode
         self.max_steps = max_steps
         self.pd_gains = pd_gains
+
+        # TODO(ZR) make this default gain set after it's stress tested
+        self.manual_mode_gains = PDGains(
+            pos_error_gain=25,
+            pos_error_rate_gain=10,
+            yaw_error_gain=0.53,
+            yaw_error_rate_gain=0.12,
+        )
+
+        # TODO(ZR) this is likely not needed
+        self.collision_gains = PDGains(
+            pos_error_gain=25,
+            pos_error_rate_gain=9,
+            yaw_error_gain=0.53,
+            yaw_error_rate_gain=0.12,
+        )
+
+        self.pd_gains = self.manual_mode_gains
+
         self.collision_thresholds = collision_thresholds
 
         self.goal = []
@@ -239,6 +272,9 @@ class ContinuousController:
 
             last_z_err = z_error
             n_steps += 1
+
+        self.pd_gains = self.manual_mode_gains
+        self.max_steps = 100
 
         self.set_goal(data)
 
@@ -388,6 +424,17 @@ class ContinuousController:
         z_error_body_rate = -1 * data.velocity.z
         x_error_body_rate = -1 * data.velocity.x
 
+        # Second, calculate yaw error assuming we want to point to where we are going
+        yaw_error = self.goal[2] - yaw
+        yaw_error = (yaw_error + np.pi) % (2 * np.pi) - np.pi  # wrap to pi\
+        yaw_error_rate = -1 * data.angular_velocity.y
+
+        # heuristic to see if we're in a collision
+        # TODO(ZR) most likely a duplicate check
+        if np.abs(z_error_body) > 0.25 and np.abs(yaw_error) > 0.05:
+            self.pd_gains = self.collision_gains
+            self.max_steps = 200
+
         force_z = (
             self.pd_gains.pos_error_gain * z_error_body
             + self.pd_gains.pos_error_rate_gain * z_error_body_rate
@@ -396,19 +443,43 @@ class ContinuousController:
             self.pd_gains.pos_error_gain * x_error_body
             + self.pd_gains.pos_error_rate_gain * x_error_body_rate
         )
-
-        # Second, calculate yaw error assuming we want to point to where we are going
-        yaw_error = self.goal[2] - yaw
-        yaw_error = (yaw_error + np.pi) % (2 * np.pi) - np.pi  # wrap to pi
-
-        yaw_error_rate = -1 * data.angular_velocity.y
         torque_y = (
             self.pd_gains.yaw_error_gain * yaw_error
             + self.pd_gains.yaw_error_rate_gain * yaw_error_rate
         )
 
+        # If we're in a collision and try to apply too much torque + linear z force
+        # scale that down.
+        # This helps avoid apply too much acceleration upon collision
+        MAX_ABS_FORCE_Z = 1
+        MAX_ABS_TORQUE_Y = 0.1
+        if np.abs(torque_y) > MAX_ABS_TORQUE_Y and np.abs(force_z) > MAX_ABS_FORCE_Z:
+            scale = np.abs(torque_y) / MAX_ABS_TORQUE_Y
+            self.pd_gains = PDGains(
+                pos_error_gain=25 / (2 * scale),
+                pos_error_rate_gain=6,
+                yaw_error_gain=0.53 / scale,
+                yaw_error_rate_gain=0.09,
+            )
+
+            force_z = (
+                self.pd_gains.pos_error_gain * z_error_body
+                + self.pd_gains.pos_error_rate_gain * z_error_body_rate
+            )
+            force_x = (
+                self.pd_gains.pos_error_gain * x_error_body
+                + self.pd_gains.pos_error_rate_gain * x_error_body_rate
+            )
+            torque_y = (
+                self.pd_gains.yaw_error_gain * yaw_error
+                + self.pd_gains.yaw_error_rate_gain * yaw_error_rate
+            )
+
         self.env.send(StepWithForce(force_z, torque_y, force_x))
         return force_z, z_error_body
+
+    def _cap_force(self):
+        pass
 
     def get_current_time(self) -> float:
         """ Get current sim time. """
