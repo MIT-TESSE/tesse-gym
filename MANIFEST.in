@@ -1,0 +1,2 @@
+include versioneer.py
+include src/tesse_gym/_version.py

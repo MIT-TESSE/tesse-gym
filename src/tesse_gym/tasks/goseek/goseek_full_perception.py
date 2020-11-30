@@ -19,12 +19,14 @@
 # this work.
 ###################################################################################################
 
-from typing import Tuple
+from typing import Callable, Optional, Tuple
 
 import numpy as np
 from gym import spaces
 
 from tesse.msgs import Camera, Channels, Compression, DataRequest, DataResponse
+from tesse_gym.core.tesse_gym import TesseGym
+from tesse_gym.core.utils import NetworkConfig, set_all_camera_params
 from tesse_gym.tasks.goseek.goseek import GoSeek
 
 
@@ -42,6 +44,95 @@ class GoSeekFullPerception(GoSeek):
     # image value. For convenience, this will be changed to the wall class.
     WALL_CLS = 2
 
+    def __init__(
+        self,
+        build_path: str,
+        network_config: Optional[NetworkConfig] = NetworkConfig(),
+        scene_id: Optional[int] = None,
+        episode_length: Optional[int] = 400,
+        step_rate: Optional[int] = 20,
+        n_targets: Optional[int] = 30,
+        success_dist: Optional[float] = 2,
+        restart_on_collision: Optional[bool] = False,
+        init_hook: Optional[Callable[[TesseGym], None]] = set_all_camera_params,
+        target_found_reward: Optional[int] = 1,
+        ground_truth_mode: Optional[bool] = True,
+        n_target_types: Optional[int] = 5,
+        collision_reward: Optional[float] = 0,
+        false_positive_reward: Optional[float] = 0,
+        observation_modalities: Optional[Tuple[Camera]] = (
+            Camera.RGB_LEFT,
+            Camera.SEGMENTATION,
+            Camera.DEPTH,
+        ),
+    ):
+        """ Initialize the TESSE treasure hunt environment.
+
+        Args:
+            build_path (str): Path to TESSE executable.
+            network_config (NetworkConfig): Network configuration parameters.
+            scene_id (int): Scene id to load.
+            episode_length (int): Maximum number of steps in the episode.
+            step_rate (int): If specified, game time is fixed to
+                `step_rate` FPS.
+            n_targets (int): Number of targets to spawn in the scene.
+            success_dist (float): Distance target must be from agent to
+                be considered found. Target must also be in agent's
+                field of view.
+            init_hook (callable): Method to adjust any experiment specific parameters
+                upon startup (e.g. camera parameters).
+            ground_truth_mode (bool): Assumes gym is consuming ground truth data. Otherwise,
+                assumes an external perception pipeline is running. In the latter mode, discrete
+                steps will be translated to continuous control commands and observations will be
+                explicitly synced with sim time.
+            n_target_types (int): Number of target types available to spawn. GOSEEK challenge 
+                has 5 target types by default. 
+            collision_reward: (int): Added to total step reward upon collision. Default is 0.
+            false_positive_reward (int): Added tot total step reward when agent incorrectly 
+                declares a target found (action 3). Default is 0.
+            observation_modalities: (Optional[Tuple[Camera]]): Input modalities to be used.
+                Defaults to (RGB_LEFT, SEGMENTATION, DEPTH).
+        """
+        super().__init__(
+            build_path,
+            network_config,
+            scene_id,
+            episode_length,
+            step_rate,
+            init_hook=init_hook,
+            ground_truth_mode=ground_truth_mode,
+            n_targets=n_targets,
+            success_dist=success_dist,
+            restart_on_collision=restart_on_collision,
+            target_found_reward=target_found_reward,
+            n_target_types=n_target_types,
+            collision_reward=collision_reward,
+            false_positive_reward=false_positive_reward, 
+            observation_modalities=observation_modalities,
+        )
+        assert np.alltrue(
+            [isinstance(camera, Camera) for camera in observation_modalities]
+        )
+        self.observation_modalities = [
+            (camera, Compression.OFF, Channels.THREE)
+            for camera in observation_modalities
+        ]
+        self._observation_space = self._get_observation_space()
+
+    def _get_observation_space(self) -> spaces.Box:
+        """ TODO(ZR) Docs """
+        n_channels = 0  # total image channels
+        for camera in self.observation_modalities:
+            if camera[0] in (Camera.RGB_RIGHT, Camera.RGB_LEFT):
+                n_channels += 3
+            elif camera[0] == Camera.SEGMENTATION:
+                n_channels += 1
+            elif camera[0] == Camera.DEPTH:
+                n_channels += 1
+            else:
+                raise ValueError(f"Unrecognized camera: {camera[0]}")
+        return spaces.Box(-np.Inf, np.Inf, shape=(240 * 320 * n_channels + 3,))
+
     @property
     def observation_space(self) -> spaces.Box:
         """ Define an observation space for RGB, depth, segmentation, and pose.
@@ -51,7 +142,7 @@ class GoSeekFullPerception(GoSeek):
         is of shape (240, 320, 3), depth and segmentation are both (240, 320), ose is (3,), thus
         the total shape is (240 * 320 * 5 + 3).
         """
-        return spaces.Box(np.Inf, np.Inf, shape=(240 * 320 * 5 + 3,))
+        return self._observation_space
 
     def form_agent_observation(self, tesse_data: DataResponse) -> np.ndarray:
         """ Create the agent's observation from a TESSE data response.
@@ -65,19 +156,20 @@ class GoSeekFullPerception(GoSeek):
                 segmentation, and depth images concatenated with the relative
                 pose vector. To recover images and pose, see `decode_observations` below.
         """
-        eo, seg, depth = tesse_data.images
-        seg = seg[..., 0].copy()  # get segmentation as one-hot encoding
+        observation_imgs = []
+        for i, camera_info in enumerate(self.observation_modalities):
+            if camera_info[0] == Camera.RGB_LEFT:
+                observation_imgs.append(tesse_data.images[i] / 255.0)
+            elif camera_info[0] == Camera.SEGMENTATION:
+                # get segmentation as one-hot encoding
+                seg = tesse_data.images[i][..., 0].copy()
+                seg[seg > (self.N_CLASSES - 1)] = self.WALL_CLS  # See WALL_CLS comment
+                seg = seg[..., np.newaxis] / (self.N_CLASSES - 1)
+                observation_imgs.append(seg)
+            elif camera_info[0] == Camera.DEPTH:
+                observation_imgs.append(tesse_data.images[i][..., np.newaxis])
 
-        # See WALL_CLS comment
-        seg[seg > (self.N_CLASSES - 1)] = self.WALL_CLS
-        observation = np.concatenate(
-            (
-                eo / 255.0,
-                seg[..., np.newaxis] / (self.N_CLASSES - 1),
-                depth[..., np.newaxis],
-            ),
-            axis=-1,
-        ).reshape(-1)
+        observation = np.concatenate(observation_imgs, axis=-1).reshape(-1)
         pose = self.get_pose().reshape((3))
         return np.concatenate((observation, pose))
 
@@ -87,12 +179,9 @@ class GoSeekFullPerception(GoSeek):
         Returns:
             DataResponse: TESSE DataResponse object.
         """
-        cameras = [
-            (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
-            (Camera.SEGMENTATION, Compression.OFF, Channels.THREE),
-            (Camera.DEPTH, Compression.OFF, Channels.THREE),
-        ]
-        return self._data_request(DataRequest(metadata=True, cameras=cameras))
+        return self._data_request(
+            DataRequest(metadata=True, cameras=self.observation_modalities)
+        )
 
 
 def decode_observations(

@@ -37,6 +37,7 @@ from tesse.msgs import (
     RemoveObjectsRequest,
     SpawnObjectRequest,
 )
+from tesse_gym.core.observations import ObservationConfig
 from tesse_gym.core.tesse_gym import TesseGym
 from tesse_gym.core.utils import NetworkConfig, set_all_camera_params
 
@@ -66,6 +67,10 @@ class GoSeek(TesseGym):
         target_found_reward: Optional[int] = 1,
         ground_truth_mode: Optional[bool] = True,
         n_target_types: Optional[int] = 5,
+        collision_reward: Optional[int] = 0,
+        false_positive_reward: Optional[int] = 0,
+        observation_config: Optional[ObservationConfig] = ObservationConfig(),
+        video_log_path=None,
     ):
         """ Initialize the TESSE treasure hunt environment.
 
@@ -88,6 +93,11 @@ class GoSeek(TesseGym):
                 explicitly synced with sim time.
             n_target_types (int): Number of target types available to spawn. GOSEEK challenge 
                 has 5 target types by default. 
+            collision_reward: (int): Added to total step reward upon collision. Default is 0.
+            false_positive_reward (int): Added tot total step reward when agent incorrectly 
+                declares a target found (action 3). Default is 0.
+            observation_modalities: (Optional[Tuple[Camera]]): Input modalities to be used.
+                Defaults to (RGB_LEFT, SEGMENTATION, DEPTH).
         """
         super().__init__(
             build_path,
@@ -97,13 +107,17 @@ class GoSeek(TesseGym):
             step_rate,
             init_hook=init_hook,
             ground_truth_mode=ground_truth_mode,
+            observation_config=observation_config,
+            video_log_path=video_log_path,
         )
         self.n_targets = n_targets
         self.success_dist = success_dist
         self.restart_on_collision = restart_on_collision
         self.target_found_reward = target_found_reward
-        self.n_found_targets = 0
         self.n_target_types = n_target_types
+        self.n_found_targets = 0
+        self.collision_reward = collision_reward
+        self.false_positive_reward = false_positive_reward
 
     @property
     def action_space(self) -> spaces.Discrete:
@@ -113,15 +127,7 @@ class GoSeek(TesseGym):
     @property
     def observation_space(self) -> spaces.Box:
         """ Space observed by the agent """
-        return spaces.Box(-np.Inf, np.Inf, dtype=np.uint8, shape=self.shape)
-
-    def observe(self) -> DataResponse:
-        """ Observe the state.
-
-        Returns:
-            DataResponse: The `DataResponse` object. """
-        cameras = [(Camera.RGB_LEFT, Compression.OFF, Channels.THREE)]
-        return self._data_request(DataRequest(metadata=True, cameras=cameras))
+        return self._observation_space
 
     def reset(
         self, scene_id: Optional[int] = None, random_seed: Optional[int] = None
@@ -151,7 +157,8 @@ class GoSeek(TesseGym):
             self.advance_game_time(1)
 
         observation = self.get_synced_observation()
-        return self.form_agent_observation(observation)
+        obs = self.form_agent_observation(observation)
+        return obs
 
     def apply_action(self, action: int) -> None:
         """ Make agent take the specified action.
@@ -229,6 +236,9 @@ class GoSeek(TesseGym):
                 # if all targets have been found, restart the episode
                 if self.n_found_targets == self.n_targets:
                     self.done = True
+        # False positive
+        elif target_position.shape[0] == 0 and action == 3:
+            reward += self.false_positive_reward
 
         self.steps += 1
         if self.steps > self.episode_length:
@@ -237,6 +247,7 @@ class GoSeek(TesseGym):
         # collision information isn't provided by the controller metadata
         if self._collision(observation.metadata):
             reward_info["collision"] = True
+            reward += self.collision_reward
 
             if self.restart_on_collision:
                 self.done = True
@@ -290,7 +301,9 @@ class GoSeek(TesseGym):
             )
 
             # targets that meet distance and bearing requirements
-            found_targets = targets_in_range[np.where(target_bearing < self.CAMERA_HFOV / 2)]
+            found_targets = targets_in_range[
+                np.where(target_bearing < self.CAMERA_HFOV / 2)
+            ]
 
         return found_targets
 
@@ -322,20 +335,6 @@ class GoSeek(TesseGym):
             )
         )
         return np.rad2deg(target_orientation).reshape(-1)
-
-    @staticmethod
-    def _collision(metadata: str) -> bool:
-        """ Check for collision with environment.
-
-        Args:
-            metadata (str): Metadata string.
-
-        Returns:
-            bool: True if agent has collided with the environment. Otherwise, false.
-        """
-        return (
-            ET.fromstring(metadata).find("collision").attrib["status"].lower() == "true"
-        )
 
     def _get_target_id_and_positions(
         self, target_metadata: str

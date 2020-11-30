@@ -25,9 +25,11 @@ import tqdm
 
 from tesse.msgs import *
 from tesse_gym.core.utils import NetworkConfig
+from tesse_gym.tasks.goseek.goseek_logger import GoSeekLogger
 from tesse_gym.eval.agent import Agent
 from tesse_gym.eval.benchmark import Benchmark
 from tesse_gym.tasks.goseek.goseek_full_perception import GoSeekFullPerception
+from tesse_gym.tasks.goseek.goseek_logger import GoSeekLogger
 
 EVALUATION_METRICS = ["found_targets", "precision", "recall", "collisions", "steps"]
 
@@ -69,6 +71,8 @@ class GoSeekBenchmark(Benchmark):
             step_rate=self.STEP_RATE,
             ground_truth_mode=ground_truth_mode,
         )
+        # udp port is fixed relative to position port
+        self.logger = GoSeekLogger(udp_port=network_config.position_port + 4)
 
     def evaluate(self, agent: Agent) -> Dict[str, Dict[str, float]]:
         """ Evaluate agent.
@@ -85,6 +89,7 @@ class GoSeekBenchmark(Benchmark):
             print(
                 f"Evaluation episode on episode {episode}, scene {self.scenes[episode]}"
             )
+            self.logger.set_next_episode()
             n_found_targets = 0
             n_predictions = 0
             n_successful_predictions = 0
@@ -101,6 +106,7 @@ class GoSeekBenchmark(Benchmark):
                 action = agent.act(obs)
                 obs, reward, done, info = self.env.step(action)
                 n_found_targets += info["n_found_targets"]
+                self.logger.log_step()
 
                 if action == 3:
                     n_predictions += 1
@@ -121,8 +127,12 @@ class GoSeekBenchmark(Benchmark):
                 "collisions": n_collisions,
                 "steps": step + 1,
             }
+            self.logger.log_results(
+                n_found_targets, precision, recall, n_collisions, step + 1
+            )
 
         self.env.close()
+        self.logger.close()
 
         # combine scene results
         results["total"] = {

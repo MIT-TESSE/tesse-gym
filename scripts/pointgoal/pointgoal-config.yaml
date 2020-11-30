@@ -1,0 +1,49 @@
+# Example pointgoal configuration
+
+env_config: {
+        FILENAME: /home/za27933/tess/goseek-challenge/simulator/goseek-v0.1.4.x86_64,
+        SCENES: [1, 2, 3, 4],
+    }
+
+model: {
+        custom_model: nature_cnn_rnn,
+        custom_model_config: {
+            cnn_shape: [4, 120, 160],
+            rnn_type: GRU,
+            hidden_size: 256,
+        },
+        max_seq_len: 400,
+    }
+
+ # training 
+lr : grid_search([2.5e-4])
+gamma : grid_search([0.99])
+lambda : grid_search([0.95])
+vf_loss_coeff : 0.5
+clip_param : 0.2
+vf_clip_param : 75
+vf_share_layers : True
+entropy_coeff : 0.01
+    
+# batch 
+train_batch_size : 512 
+sgd_minibatch_size : 128
+num_sgd_iter : 8
+
+# env 
+env : goseek
+framework : torch
+num_workers : 4
+num_gpus : 4
+num_envs_per_worker : 1
+log_level : INFO
+
+evaluation_interval : 200
+evaluation_num_episodes : 100
+evaluation_config: {
+    env_config: {
+            SCENES: [5],
+            FILENAME: /home/za27933/tess/goseek-challenge/simulator/goseek-v0.1.4.x86_64,
+            RANK: 6,
+        }
+    }

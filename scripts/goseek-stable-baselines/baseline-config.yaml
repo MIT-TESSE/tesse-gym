@@ -1,0 +1,25 @@
+# GOSEEK ppo stable-baselines
+
+# env params
+FILENAME: "../../goseek-challenge/simulator/goseek-allscenes-v0.1.4.x86_64"
+N_ENVIRONMENTS: 4
+SCENE_IDS: [1, 2, 3, 4, 5]
+N_TARGETS: 30
+TARGET_FOUND_REWARD: 2
+EPISODE_LENGTH: 400
+MODALITIES: ['RGB_LEFT', 'SEGMENTATION', 'DEPTH']
+IMG_SHAPE: [240, 320]
+
+# learning params
+TOTAL_TIMESTEPS: 60000000
+LEARNING_RATE: 0.00025
+GAMMA: 0.999
+
+# model
+MODEL: "default"
+
+# logging
+TENSORBOARD_LOG_NAME: "base_tb_log"
+LOG_DIR: "results/base-goseek"
+
+

@@ -22,11 +22,12 @@
 import atexit
 import subprocess
 import time
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union, List
 from xml.etree.cElementTree import Element
 
 import defusedxml.ElementTree as ET
 import numpy as np
+import numpy.random as rnd
 from gym import Env as GymEnv
 from gym import logger, spaces
 from scipy.spatial.transform import Rotation
@@ -35,6 +36,8 @@ from tesse.env import Env
 from tesse.msgs import *
 
 from .continuous_control import ContinuousController
+from .logging import TESSEVideoWriter
+from .observations import ObservationConfig, setup_observations
 from .utils import (
     NetworkConfig,
     TesseConnectionError,
@@ -62,18 +65,22 @@ class TesseGym(GymEnv):
         self,
         sim_path: Union[str, None],
         network_config: Optional[NetworkConfig] = get_network_config(),
-        scene_id: Optional[int] = None,
+        scene_id: Optional[Union[int, List[int]]] = None,
         episode_length: Optional[int] = 400,
         step_rate: Optional[int] = -1,
         init_hook: Optional[Callable[["TesseGym"], None]] = set_all_camera_params,
         ground_truth_mode: Optional[bool] = True,
+        observation_config=ObservationConfig(),
+        video_log_path: str = None,
+        video_writer_type: TESSEVideoWriter = TESSEVideoWriter,
     ) -> None:
         """
         Args:
             sim_path (str): Path to simulator executable. If `None` is given, assume
                 the simulator is running externally.
             network_config (NetworkConfig): Network configuration parameters.
-            scene_id (int): Scene to use.
+            scene_id (int): Scene to use. If a list is given, scenes will be randomly
+                chosen upon reset.
             episode_length (int): Max steps per episode.
             step_rate (int): If specified, game time is fixed to
                 `step_rate` FPS.
@@ -84,6 +91,10 @@ class TesseGym(GymEnv):
                 assumes an external perception pipeline is running. In the latter mode, discrete
                 steps will be translated to continuous control commands and observations will be
                 explicitly synced with sim time.
+            observation_modalities: (Optional[Tuple[Camera]]): Input modalities to be used.
+                Defaults to (RGB_LEFT, SEGMENTATION, DEPTH).
+            video_log_path (str): Write episode videos to this directory.
+            video_writer_type (TesseVideoWriter): Customizable video writer class.
         """
         atexit.register(self.close)
 
@@ -116,8 +127,8 @@ class TesseGym(GymEnv):
             step_port=network_config.step_port,
         )
 
-        if scene_id is not None:
-            self.env.request(SceneRequest(scene_id))
+        self.scene_id = scene_id
+        self._adjust_scene()
 
         # if specified, set step mode parameters
         self.step_mode = False
@@ -157,6 +168,28 @@ class TesseGym(GymEnv):
         self.initial_rotation = np.eye(2)
         self.relative_pose = np.zeros((3,))
 
+        # setup observation
+        self.observation_modalities, self._observation_space = setup_observations(
+            observation_config
+        )
+
+        if video_log_path:
+            self.video_writer = video_writer_type(video_log_path, self.env, gym=self)
+        else:
+            self.video_writer = None
+
+    def _adjust_scene(self):
+        """ Set scene as determined by `self.scene_id`. """
+        if self.scene_id is None:
+            return
+        elif isinstance(self.scene_id, int):
+            print(f"\n\nSetting scene id to {self.scene_id}")
+            self.env.request(SceneRequest(self.scene_id))
+        elif isinstance(self.scene_id, list):
+            scene = rnd.choice(self.scene_id)
+            print(f"\n\nRandomly setting scene id {scene}")
+            self.env.request(SceneRequest(scene))
+
     def advance_game_time(self, n_steps: int) -> None:
         """ Advance game time in step mode by sending step forces of 0 to TESSE. """
         for i in range(n_steps):
@@ -182,7 +215,7 @@ class TesseGym(GymEnv):
     @property
     def observation_space(self) -> spaces.Box:
         """ Space observed by the agent. """
-        return spaces.Box(0, 255, dtype=np.uint8, shape=self.shape)
+        return self._observation_space
 
     def step(self, action: int) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """ Take a training step consisting of an action, observation, and
@@ -204,6 +237,7 @@ class TesseGym(GymEnv):
 
         self.apply_action(action)
         response = self.observe()
+        self._update_pose(response.metadata)
         reward, reward_info = self.compute_reward(response, action)
 
         if reward_info["env_changed"] and not self.done:
@@ -213,14 +247,18 @@ class TesseGym(GymEnv):
                 self.advance_game_time(1)
             response = self.get_synced_observation()
 
-        self._update_pose(response.metadata)
+        observation = self.form_agent_observation(response)
 
-        return self.form_agent_observation(response), reward, self.done, reward_info
+        if self.video_writer != None:
+            self.video_writer.step()
+
+        return observation, reward, self.done, reward_info
 
     def observe(self) -> DataResponse:
         """ Observe state. """
-        cameras = [(Camera.RGB_LEFT, Compression.OFF, Channels.THREE)]
-        return self._data_request(DataRequest(metadata=True, cameras=cameras))
+        return self._data_request(
+            DataRequest(metadata=True, cameras=self.observation_modalities)
+        )
 
     def reset(
         self, scene_id: Optional[int] = None, random_seed: Optional[int] = None
@@ -239,6 +277,8 @@ class TesseGym(GymEnv):
 
         if scene_id:
             self.env.request(SceneRequest(scene_id))
+        elif isinstance(self.scene_id, list):
+            self._adjust_scene()  # randomly choose a scene
 
         self.env.request(Respawn())
         self.done = False
@@ -247,6 +287,10 @@ class TesseGym(GymEnv):
         observation = self.get_synced_observation()
 
         self._init_pose(observation.metadata)
+
+        if self.video_writer != None:
+            self.video_writer.reset()
+
         return self.form_agent_observation(observation)
 
     def render(self, mode: str = "rgb_array") -> np.ndarray:
@@ -301,23 +345,49 @@ class TesseGym(GymEnv):
                 response = self.observe()
         return response
 
-    def form_agent_observation(self, scene_observation: DataResponse) -> np.ndarray:
-        """ Create agent's observation from `DataResponse` message.
+    def form_agent_observation(self, tesse_data: DataResponse) -> np.ndarray:
+        """ Create the agent's observation from a TESSE data response.
 
-        Creates agent's observation from a part
-        of all of the information received from TESSE.
-        This is useful if some information is required to compute
-        a reward (e.g. segmentation for finding targets), but
-        that information should not go to the agent.
+            Args:
+                tesse_data (DataResponse): TESSE DataResponse object containing
+                    data specified in `self.observation_modalities`.
 
-        Args:
-            scene_observation (DataResponse): tesse_interface
-                `DataResponse` object.
+            Returns:
+                np.ndarray: The agent's observation consisting of data 
+                    specified in `self.observation_modalities.
 
-        Returns:
-            np.ndarray: Observation given to the agent.
-        """
-        return scene_observation.images[0]
+            Notes:
+                If pose is included, the observation will be given
+                as a vector. Otherwise, the observation will preserve
+                the image shape.
+            """
+        # TODO(ZR) remove hardcoded segmentation pre-processing
+        N_CLASSES = 11
+        WALL_CLS = 2
+        observation_imgs = []
+        for i, camera_info in enumerate(self.observation_modalities):
+            if camera_info[0] == Camera.RGB_LEFT:
+                observation_imgs.append(tesse_data.images[i] / 255.0)
+            elif camera_info[0] == Camera.SEGMENTATION:
+                # get segmentation as one-hot encoding
+                seg = tesse_data.images[i][..., 0].copy()
+                seg[seg > (N_CLASSES - 1)] = WALL_CLS  # See WALL_CLS comment
+                seg = seg[..., np.newaxis] / (N_CLASSES - 1)
+                observation_imgs.append(seg)
+            elif camera_info[0] == Camera.DEPTH:
+                observation_imgs.append(tesse_data.images[i][..., np.newaxis])
+
+        observation_imgs = np.concatenate(observation_imgs, axis=-1)
+
+        if (
+            len(self.observation_space.shape) == 1
+        ):  # flattened observation means we use pose
+            observation_imgs = observation_imgs.reshape(-1)
+            pose = self.get_pose().reshape((3))
+            observation = np.concatenate((observation_imgs, pose))
+        else:
+            observation = observation_imgs
+        return observation
 
     @property
     def action_space(self):
@@ -487,4 +557,18 @@ class TesseGym(GymEnv):
         """
         return np.array(
             [pos.attrib["x"], pos.attrib["y"], pos.attrib["z"]], dtype=np.float32
+        )
+
+    @staticmethod
+    def _collision(metadata: str) -> bool:
+        """ Check for collision with environment.
+
+        Args:
+            metadata (str): Metadata string.
+
+        Returns:
+            bool: True if agent has collided with the environment. Otherwise, false.
+        """
+        return (
+            ET.fromstring(metadata).find("collision").attrib["status"].lower() == "true"
         )

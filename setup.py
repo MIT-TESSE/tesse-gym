@@ -20,11 +20,13 @@
 ###################################################################################################
 
 from setuptools import setup, find_packages
+import versioneer
 
 setup(
     name="tesse_gym",
-    version="0.1.6",
-    description="TESSE OpenAI Gym python interface",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
+    description="TESSE OpenAI Gym interface",
     packages=find_packages("src"),
     # tell setuptools that all packages will be under the 'src' directory
     # and nowhere else
@@ -40,6 +42,7 @@ setup(
         "tqdm >= 4.42.1",
         "tesse@git+https://git@github.com/MIT-TESSE/tesse-interface.git@0.1.2#egg=tesse",
     ],
+    extras_require={"rllib": ["ray[rllib]>=0.8.0", "torch>=1.4.0"],},
     dependency_links=[
         "git+https://git@github.com/MIT-TESSE/tesse-interface.git@0.1.2#egg=tesse"
     ],

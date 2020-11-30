@@ -75,7 +75,11 @@ def get_network_config(
 
 def set_all_camera_params(
     tesse_gym,
-    cameras=(Camera.RGB_LEFT, Camera.SEGMENTATION, Camera.DEPTH),
+    cameras=(
+        Camera.RGB_LEFT,
+        Camera.SEGMENTATION,
+        Camera.DEPTH,
+    ),  # , Camera.THIRD_PERSON),
     height_in_pixels=240,
     width_in_pixels=320,
     field_of_view=60,

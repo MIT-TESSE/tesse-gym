@@ -19,6 +19,28 @@
 # this work.
 ###################################################################################################
 
-from tesse_gym.tasks.navigation.navigation import Navigation
+from tesse_gym.core.logging import TesseLogger
 
-__all__ = ["Navigation"]
+
+class GoSeekLogger(TesseLogger):
+    def log_results(
+        self,
+        found_targets: int,
+        precision: float,
+        recall: float,
+        collisions: int,
+        steps: int,
+    ) -> None:
+        """ Log GOSEEK episode results
+
+        Args:
+            found_targets (int): Number of found targets.
+            precision (float): Found target precision.
+            recall (float): Found target recall.
+            collisions (int): Number of collisions.
+            steps (int): Number of steps taken.
+        """
+        self.logger.info(
+            f"RESULTS (found targets, precision, recall, collisions, steps): "
+            f"{found_targets},{precision},{recall},{collisions},{steps}"
+        )

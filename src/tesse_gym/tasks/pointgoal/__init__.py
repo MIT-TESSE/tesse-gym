@@ -19,6 +19,6 @@
 # this work.
 ###################################################################################################
 
-from tesse_gym.tasks.navigation.navigation import Navigation
+from tesse_gym.tasks.pointgoal.pointgoal import PointGoal
 
-__all__ = ["Navigation"]
+__all__ = ["PointGoal"]

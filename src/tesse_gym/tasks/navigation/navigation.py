@@ -79,4 +79,4 @@ class Navigation(TesseGym):
             reward -= 1.0  # Reward for colliding
             self.done = True  # If colliding, the scenario ends
 
-        return reward, {}
+        return reward, {"env_changed": False}
