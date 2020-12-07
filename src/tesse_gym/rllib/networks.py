@@ -42,17 +42,25 @@ except (ImportError, ModuleNotFoundError):
 
 class RLLibNetworkBase:
     def __init__(
-        self, cnn: nn.Module, cnn_shape_hwc: Tuple[int, int, int], pose_length: int
+        self,
+        obs_space: gym.spaces.Space,
+        cnn: nn.Module,
+        cnn_shape_hwc: Tuple[int, int, int],
+        pose_length: int,
     ):
-        """ Helpers for rllib networks.
+        """ Helpers for rllib network data preprocessing and inference.
 
         Args:
+            obs_space (gym.spaces.Space): Expected observation space. RLLib
+                flattens all spaces, the the original information is recovered 
+                via `obs_space.original_space`.
             cnn (nn.Module): CNN modules.
             cnn_shape_hwc (Tuple[int, int, int]): Expected
                 shape of `cnn` input in (height x width x channel).
             pose_length (int): Expected length of input pose
                 at end of flattened observation.
         """
+        self.obs_space = obs_space.original_space
         self.cnn = cnn
         self.cnn_shape_hwc = cnn_shape_hwc
         self.pose_length = pose_length
@@ -66,16 +74,39 @@ class RLLibNetworkBase:
 
         Returns:
             torch.Tensor: CNN features concatenated with pose.
-        """
-        flat_imgs = input[..., : -self.pose_length]
-        imgs = torch.reshape(flat_imgs, (-1,) + self.cnn_shape_hwc)
-        imgs = imgs.permute(0, 3, 1, 2).float()  # hwc -> chw
 
+        Notes:
+            For Box observation spaces, images and poses
+            will be extracted and properly formatted according to the 
+            expected shapes given by `self.cnn_shape_hwc` and `self.pose_length`.
+            
+            If the observation space is a dictionary, image and vector types 
+            will be inferred from the Space shape. Images will be stacked and 
+            reshaped to (h,w,c).
+        """
+        if isinstance(self.obs_space, gym.spaces.Box):
+            flat_imgs = input[..., : -self.pose_length]
+            imgs = torch.reshape(flat_imgs, (-1,) + self.cnn_shape_hwc)
+            poses = input[..., -self.pose_length :].reshape(-1, self.pose_length)
+        elif isinstance(self.obs_space, gym.spaces.Dict):
+            n_read_values = 0
+            imgs = []
+            for k, v in self.obs_space.spaces.items():
+                data = input[..., n_read_values : n_read_values + np.prod(v.shape)]
+                data = torch.reshape(data, (-1,) + v.shape)
+                n_read_values += np.prod(v.shape)
+                if len(data.shape) == 4:  # image data
+                    imgs.append(data)
+                elif len(data.shape) == 2:  # pose data
+                    poses = data
+                else:
+                    raise ValueError(f"Unexpected data shape: {data.shape}")
+            imgs = torch.cat(imgs, dim=-1)
+
+        imgs = imgs.permute(0, 3, 1, 2).float()  # hwc -> chw
         img_features = self.cnn(imgs)
 
         if self.pose_length is not None:
-            poses = input[..., -self.pose_length :]
-            poses = poses.reshape(-1, poses.shape[-1])
             features = torch.cat((img_features, poses), dim=-1)
         else:
             features = img_features
@@ -148,7 +179,10 @@ class NatureCNNActorCritic(TorchModelV2, nn.Module, RLLibNetworkBase):
         """ Actor Critic Model with CNN feature extractor.
 
         Args:
-            obs_space (gym.spaces.Space): Agent's observation space.
+            obs_space (gym.spaces.Space): Agent's observation space. RLlib 
+                flattens all spaces, so the original information is recovered
+                via `obs_space.original_space`. This is used for preprocessing
+                raw image, pose, etc. data.
             action_space (gym.spaces.Space): Agent's action space.
             num_outputs (int): Lenght of model output vector. 
                 Corresponds to `action_space`.
@@ -174,7 +208,9 @@ class NatureCNNActorCritic(TorchModelV2, nn.Module, RLLibNetworkBase):
         self.value_branch = nn.Linear(512, 1)
         self._features = None
 
-        RLLibNetworkBase.__init__(self, self.cnn, self.cnn_shape_hwc, pose_length)
+        RLLibNetworkBase.__init__(
+            self, obs_space, self.cnn, self.cnn_shape_hwc, pose_length
+        )
 
     @override(TorchModelV2)
     def forward(
@@ -219,7 +255,10 @@ class NatureCNNRNNActorCritic(TorchRNN, nn.Module, RLLibNetworkBase):
         """ Actor Critic Model with CNN feature extractor.
 
         Args:
-            obs_space (gym.spaces.Space): Agent's observation space.
+            obs_space (gym.spaces.Space): Agent's observation space. RLlib 
+                flattens all spaces, so the original information is recovered
+                via `obs_space.original_space`. This is used for preprocessing
+                raw image, pose, etc. data.
             action_space (gym.spaces.Space): Agent's action space.
             num_outputs (int): Lenght of model output vector. 
                 Corresponds to `action_space`.
@@ -249,7 +288,9 @@ class NatureCNNRNNActorCritic(TorchRNN, nn.Module, RLLibNetworkBase):
         self.value_branch = nn.Linear(self.rnn_state_size, 1)
         self._features = None
 
-        RLLibNetworkBase.__init__(self, self.cnn, self.cnn_shape_hwc, self.pose_length)
+        RLLibNetworkBase.__init__(
+            self, obs_space, self.cnn, self.cnn_shape_hwc, self.pose_length
+        )
 
     @override(TorchRNN)
     def forward_rnn(

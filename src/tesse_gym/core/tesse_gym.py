@@ -22,7 +22,7 @@
 import atexit
 import subprocess
 import time
-from typing import Any, Callable, Dict, Optional, Tuple, Union, List
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from xml.etree.cElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -183,11 +183,9 @@ class TesseGym(GymEnv):
         if self.scene_id is None:
             return
         elif isinstance(self.scene_id, int):
-            print(f"\n\nSetting scene id to {self.scene_id}")
             self.env.request(SceneRequest(self.scene_id))
         elif isinstance(self.scene_id, list):
             scene = rnd.choice(self.scene_id)
-            print(f"\n\nRandomly setting scene id {scene}")
             self.env.request(SceneRequest(scene))
 
     def advance_game_time(self, n_steps: int) -> None:
@@ -213,7 +211,7 @@ class TesseGym(GymEnv):
             self.env.send(self.TransformMessage(x, z, y))
 
     @property
-    def observation_space(self) -> spaces.Box:
+    def observation_space(self) -> Union[spaces.Dict, spaces.Box]:
         """ Space observed by the agent. """
         return self._observation_space
 
@@ -354,7 +352,7 @@ class TesseGym(GymEnv):
 
             Returns:
                 np.ndarray: The agent's observation consisting of data 
-                    specified in `self.observation_modalities.
+                    specified in `self.observation_modalities`.
 
             Notes:
                 If pose is included, the observation will be given
@@ -377,16 +375,20 @@ class TesseGym(GymEnv):
             elif camera_info[0] == Camera.DEPTH:
                 observation_imgs.append(tesse_data.images[i][..., np.newaxis])
 
-        observation_imgs = np.concatenate(observation_imgs, axis=-1)
-
-        if (
-            len(self.observation_space.shape) == 1
-        ):  # flattened observation means we use pose
-            observation_imgs = observation_imgs.reshape(-1)
-            pose = self.get_pose().reshape((3))
-            observation = np.concatenate((observation_imgs, pose))
-        else:
-            observation = observation_imgs
+        # make observations either Box or Dict type
+        if isinstance(self._observation_space, spaces.Box):
+            observation_imgs = np.concatenate(observation_imgs, axis=-1)
+            # flattened observation space means we use pose
+            if len(self.observation_space.shape) == 1:
+                pose = self.get_pose().reshape((3))
+                observation = np.concatenate((observation_imgs.reshape(-1), pose))
+            else:
+                observation = observation_imgs
+        elif isinstance(self._observation_space, spaces.Dict):
+            names = [c.name for c, _, _ in self.observation_modalities]
+            observation = dict(zip(names, observation_imgs))
+            if "POSE" in self._observation_space.spaces.keys():
+                observation["POSE"] = self.get_pose().reshape((3))
         return observation
 
     @property

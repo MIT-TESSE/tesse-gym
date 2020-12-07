@@ -3,6 +3,7 @@
 env_config: {
         FILENAME: /home/za27933/tess/goseek-challenge/simulator/goseek-v0.1.4.x86_64,
         SCENES: [[1,2,3,4], [1,2,3,4], [1,2,3,4]],  # 3 envs that choose between 4 scenes
+        video_log_path: "/home/za27933/tess/tesse-gym/exploration-videos/",
         cell_size: 5,
         collision_penalty: 0,
     }
@@ -19,7 +20,7 @@ model: {
     }
 
  # training
-lr : grid_search([2.5e-4, 1.0e-3])
+lr : grid_search([2.5e-4]) #, 1.0e-3])
 gamma : grid_search([0.99])
 lambda : grid_search([0.95])
 # lr_schedule: [[1500, 2.5e-4], [1750, 2.0e-4], [4000, 1.0e-4]]  # [itr, target lr]

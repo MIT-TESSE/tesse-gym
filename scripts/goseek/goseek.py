@@ -25,28 +25,36 @@ import itertools
 import subprocess
 
 import numpy as np
-import ray
 import yaml
+
+import ray
 from ray import tune
 from ray.rllib.agents import ppo
 from ray.rllib.agents.callbacks import DefaultCallbacks
 from ray.rllib.models import ModelCatalog
 from ray.tune import grid_search
 from ray.tune.registry import register_env
-
 from tesse.msgs import Camera
 from tesse_gym import ObservationConfig, get_network_config
 from tesse_gym.core.utils import set_all_camera_params
 from tesse_gym.rllib.networks import NatureCNNRNNActorCritic
+from tesse_gym.rllib.utils import (
+    check_for_tesse_instances,
+    get_args,
+    populate_rllib_config,
+)
 from tesse_gym.tasks.goseek import GoSeek
 
 
 class GOSEEKGoalCallbacks(DefaultCallbacks):
     def on_episode_end(self, worker, base_env, policies, episode, **kwargs):
-        mean_found_targets = np.array(
-            [env.n_found_targets for env in base_env.get_unwrapped()]
-        ).mean()
+        def _get_unwrapped_env_value(f):
+            return np.array([[f(env) for env in base_env.get_unwrapped()]]).mean()
+
+        mean_found_targets = _get_unwrapped_env_value(lambda x: x.n_found_targets)
+        mean_collisions = _get_unwrapped_env_value(lambda x: x.n_collisions)
         episode.custom_metrics["found_targets"] = mean_found_targets
+        episode.custom_metrics["collisions"] = mean_collisions
 
 
 def init_function(env):
@@ -55,12 +63,13 @@ def init_function(env):
     )
 
 
-def make_goseek_env(config, video_log_path):
+def make_goseek_env(config):
     observation_config = ObservationConfig(
         modalities=(Camera.RGB_LEFT, Camera.SEGMENTATION, Camera.DEPTH),
         height=cnn_shape[1],
         width=cnn_shape[2],
         pose=True,
+        use_dict=True,
     )
 
     worker_index = config.worker_index
@@ -68,6 +77,9 @@ def make_goseek_env(config, video_log_path):
     N_ENVS_PER_WORKER = 3
     rank = worker_index + N_ENVS_PER_WORKER * vector_index
     scene = config["SCENES"][rank % len(config["SCENES"])]
+
+    if "RANK" in config.keys():
+        rank = int(config["RANK"])
 
     print(
         f"MAKING GOSEEK ENV w/ rank: {rank}, inds: ({worker_index}, {vector_index}, scene: {scene})"
@@ -81,40 +93,10 @@ def make_goseek_env(config, video_log_path):
         target_found_reward=2,
         observation_config=observation_config,
         init_hook=init_function,
-        video_log_path=video_log_path,
+        video_log_path=config["video_log_path"],
+        collision_reward=config["collision_reward"],
     )
     return env
-
-
-def populate_rllib_config(default_config, user_config):
-    with open(user_config) as f:
-        user_config = yaml.load(f)
-
-    for key, value in user_config.items():
-        if isinstance(value, str) and "grid_search" in value:
-            parsed_value = [
-                float(x) for x in value.split("([")[1].split("])")[0].split(",")
-            ]
-            default_config[key] = grid_search(parsed_value)
-        else:
-            default_config[key] = user_config[key]
-
-    return default_config
-
-
-def check_for_tesse_instances():
-    if all(
-        s in subprocess.run(["ps", "aux"], capture_output=True).stdout.decode("utf-8")
-        for s in ["goseek-", ".x86_64"]
-    ):
-        raise EnvironmentError("TESSE is already running")
-
-
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config")
-    parser.add_argument("--name")
-    return parser.parse_args()
 
 
 if __name__ == "__main__":
@@ -125,23 +107,20 @@ if __name__ == "__main__":
     ModelCatalog.register_custom_model("nature_cnn_rnn", NatureCNNRNNActorCritic)
     ModelCatalog.register_custom_model("nature_cnn", NatureCNNRNNActorCritic)
     cnn_shape = (5, 120, 160)
-
-    def make_logging_goseek_env(env_config):
-        return make_goseek_env(
-            env_config, f"/home/za27933/tess/tesse-gym/goseek-videos/{args.name}",
-        )
-
-    register_env("goseek", make_logging_goseek_env)
+    register_env("goseek", make_goseek_env)
 
     config = ppo.DEFAULT_CONFIG.copy()
     config["callbacks"] = GOSEEKGoalCallbacks
     config = populate_rllib_config(config, args.config)
+    config["env_config"]["video_log_path"] = (
+        config["env_config"]["video_log_path"] + f"/{args.name}"
+    )
 
     search_exp = tune.Experiment(
         name=args.name,
         run="PPO",
         config=config,
-        stop={"timesteps_total": 5000000},
+        stop={"timesteps_total": args.timesteps},
         checkpoint_freq=500,
         checkpoint_at_end=True,
     )

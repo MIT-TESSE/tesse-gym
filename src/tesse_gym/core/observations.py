@@ -20,7 +20,7 @@
 ###################################################################################################
 
 from collections import namedtuple
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import gym.spaces as spaces
 import numpy as np
@@ -29,14 +29,14 @@ from tesse.msgs import Camera, Channels, Compression, DataResponse
 
 ObservationConfig = namedtuple(
     "ObservationConfig",
-    ["modalities", "pose", "height", "width", "min", "max"],
-    defaults=((Camera.RGB_LEFT,), False, 240, 320, -np.Inf, np.Inf),
+    ["modalities", "pose", "height", "width", "min", "max", "use_dict"],
+    defaults=((Camera.RGB_LEFT,), False, 240, 320, -np.Inf, np.Inf, True),
 )
 
 
 def setup_observations(
     observation_config: ObservationConfig,
-) -> Tuple[Tuple[Camera, Compression, Channels], spaces.Box]:
+) -> Tuple[Tuple[Camera, Compression, Channels], Union[spaces.Box, spaces.Dict]]:
     """ Creates observation configuration for `TesseGym`.
 
     Parameters:
@@ -49,8 +49,13 @@ def setup_observations(
                 observation.
             - spaces.Box object describing the observation space.
     """
+    # TODO(ZR) can segmentation / depth use 1 channel?
     observation_modalities = [
-        (camera, Compression.OFF, Channels.THREE)
+        (
+            camera,
+            Compression.OFF,
+            Channels.THREE,  # if "RGB" in camera.name else Channels.SINGLE,
+        )
         for camera in observation_config.modalities
     ]
     observation_space = get_observation_space(
@@ -60,18 +65,20 @@ def setup_observations(
         pose=observation_config.pose,
         obs_min=observation_config.min,
         obs_max=observation_config.max,
+        use_dict=observation_config.use_dict,
     )
     return observation_modalities, observation_space
 
 
 def get_observation_space(
-    observation_modalities: Optional[Tuple[Camera, ...]],
+    observation_modalities: List[Tuple[Camera, Compression, Channels]],
     height_in_pixels: Optional[int] = 240,
     width_in_pixels: Optional[int] = 320,
     pose: Optional[bool] = True,
     obs_min: Optional[float] = -np.Inf,
     obs_max: Optional[float] = np.Inf,
-) -> spaces.Box:
+    use_dict: Optional[bool] = True,
+) -> Union[spaces.Box, spaces.Dict]:
     """ Get observation space.
     
     Parameters:
@@ -82,27 +89,35 @@ def get_observation_space(
         pose (bool): True if pose is included in observation.
         obs_min (float): Min possible observation value.
         obs_max (float): Max possible observation value. 
+        use_dict (bool): Use dict space. Otherwise, flatten
+            observations into vector.
     
     Returns:
         spaces.Box: OpenAI Gym spaces.Box object describing the 
             observation given as arguments.
     """
-    n_channels = 0  # total image channels
-    for camera in observation_modalities:
-        if camera[0] in (Camera.RGB_RIGHT, Camera.RGB_LEFT):
-            n_channels += 3
-        elif camera[0] == Camera.SEGMENTATION:
-            n_channels += 1
-        elif camera[0] == Camera.DEPTH:
-            n_channels += 1
-        else:
-            raise ValueError(f"Unrecognized camera: {camera[0]}")
-    if pose:
-        observation_shape = (height_in_pixels * width_in_pixels * n_channels + 3,)
-    else:
-        observation_shape = (height_in_pixels, width_in_pixels, n_channels)
+    camera_names = []
+    camera_channels = []
+    for camera, _, channels in observation_modalities:
+        camera_channels.append(3 if "RGB" in camera.name else 1)
+        camera_names.append(camera.name)
 
-    return spaces.Box(obs_min, obs_max, shape=observation_shape)
+    if use_dict:
+        obs_spaces = [
+            spaces.Box(obs_min, obs_max, shape=(height_in_pixels, width_in_pixels, c))
+            for c in camera_channels
+        ]
+        if pose:
+            camera_names.append("POSE")
+            obs_spaces.append(spaces.Box(obs_min, obs_max, shape=(3,)))
+        observation_space = spaces.Dict(dict(zip(camera_names, obs_spaces)))
+    else:
+        observation_shape = (height_in_pixels, width_in_pixels, sum(camera_channels))
+        if pose:  # flatten observation to vector if using pose
+            observation_shape = (np.prod(observation_shape) + 3,)
+        observation_space = spaces.Box(obs_min, obs_max, shape=observation_shape)
+
+    return observation_space
 
 
 def decode_observations(

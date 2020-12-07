@@ -118,16 +118,12 @@ class GoSeek(TesseGym):
         self.n_found_targets = 0
         self.collision_reward = collision_reward
         self.false_positive_reward = false_positive_reward
+        self.n_collisions = 0
 
     @property
     def action_space(self) -> spaces.Discrete:
         """ Actions available to agent. """
         return spaces.Discrete(4)
-
-    @property
-    def observation_space(self) -> spaces.Box:
-        """ Space observed by the agent """
-        return self._observation_space
 
     def reset(
         self, scene_id: Optional[int] = None, random_seed: Optional[int] = None
@@ -145,6 +141,7 @@ class GoSeek(TesseGym):
 
         self.env.request(RemoveObjectsRequest())
         self.n_found_targets = 0
+        self.n_collisions = 0
 
         for i in range(self.n_targets):
             self.env.request(
@@ -248,6 +245,7 @@ class GoSeek(TesseGym):
         if self._collision(observation.metadata):
             reward_info["collision"] = True
             reward += self.collision_reward
+            self.n_collisions += 1
 
             if self.restart_on_collision:
                 self.done = True

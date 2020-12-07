@@ -37,7 +37,6 @@ from tesse.utils import UdpListener
 
 from .continuous_control import parse_metadata
 
-
 VideoLoggingConfig = namedtuple("VideoLoggingConfig", ["save_root", "save_freq"])
 
 
@@ -122,7 +121,7 @@ class TesseLogger:
 
 class TESSEVideoWriter:
     def __init__(
-        self, save_root: str, env: Env, save_freq: int = 100, gym = None
+        self, save_root: str, env: Env, save_freq: int = 100, gym=None
     ) -> None:
         """ Store tesse-gym observations as a video
 
@@ -217,7 +216,9 @@ class TESSEVideoWriter:
 
     @staticmethod
     def get_video_writer(name: str, shape: Tuple[int, int] = (853, 480)):
-        return cv2.VideoWriter(name, cv2.VideoWriter_fourcc("M", "J", "P", "G"), 20.0, shape) #*XVID
+        return cv2.VideoWriter(
+            name, cv2.VideoWriter_fourcc("M", "J", "P", "G"), 20.0, shape
+        )  # *XVID
 
     @staticmethod
     def resize_img(img: np.ndarray, scale: float):

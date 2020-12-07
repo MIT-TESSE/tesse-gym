@@ -175,10 +175,13 @@ class PointGoal(TesseGym):
         """ Adds goal point to the default TesseGym observation. """
         observation = super().form_agent_observation(tesse_data)
 
-        if len(observation.shape) == 1:
-            observation = np.concatenate((observation, self.goal_point))
-        else:
-            observation = np.concatenate((observation.reshape(-1), self.goal_point))
+        if isinstance(self._observation_space, spaces.Box):
+            if len(observation.shape) == 1:
+                observation = np.concatenate((observation, self.goal_point))
+            else:
+                observation = np.concatenate((observation.reshape(-1), self.goal_point))
+        elif isinstance(self._observation_space, spaces.Dict):
+            observation["goal"] = self.goal_point
 
         return observation
 

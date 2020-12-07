@@ -47,7 +47,6 @@ from tesse_gym.rllib.utils import (
 from tesse_gym.tasks.exploration import Exploration
 
 
-
 class ExplorationCallbacks(DefaultCallbacks):
     def on_episode_end(self, worker, base_env, policies, episode, **kwargs):
         def _get_unwrapped_env_value(f):
@@ -71,6 +70,7 @@ def make_exploration_env(config, video_log_path=None):
         height=cnn_shape[1],
         width=cnn_shape[2],
         pose=True,
+        use_dict=True,
     )
 
     worker_index = config.worker_index
@@ -115,7 +115,9 @@ if __name__ == "__main__":
     config = ppo.DEFAULT_CONFIG.copy()
     config["callbacks"] = ExplorationCallbacks
     config = populate_rllib_config(config, args.config)
-    config["env_config"]["video_log_path"] = f"/data/za27933/tess/tesse-gym/exploration-videos/{args.name}"
+    config["env_config"]["video_log_path"] = (
+        config["env_config"]["video_log_path"] + f"/{args.name}"
+    )
 
     search_exp = tune.Experiment(
         name=args.name,
