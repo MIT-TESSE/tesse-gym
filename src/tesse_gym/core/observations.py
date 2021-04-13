@@ -20,7 +20,7 @@
 ###################################################################################################
 
 from collections import namedtuple
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import gym.spaces as spaces
 import numpy as np
@@ -29,8 +29,8 @@ from tesse.msgs import Camera, Channels, Compression, DataResponse
 
 ObservationConfig = namedtuple(
     "ObservationConfig",
-    ["modalities", "pose", "height", "width", "min", "max", "use_dict"],
-    defaults=((Camera.RGB_LEFT,), False, 240, 320, -np.Inf, np.Inf, True),
+    ["modalities", "pose", "height", "width", "min", "max", "use_dict", "custom_obs"],
+    defaults=((Camera.RGB_LEFT,), False, 240, 320, -np.Inf, np.Inf, True, None),
 )
 
 
@@ -66,6 +66,7 @@ def setup_observations(
         obs_min=observation_config.min,
         obs_max=observation_config.max,
         use_dict=observation_config.use_dict,
+        custom_obs=observation_config.custom_obs,
     )
     return observation_modalities, observation_space
 
@@ -78,6 +79,7 @@ def get_observation_space(
     obs_min: Optional[float] = -np.Inf,
     obs_max: Optional[float] = np.Inf,
     use_dict: Optional[bool] = True,
+    custom_obs: Optional[Dict[str, Tuple[float, float, Tuple[int, ...]]]] = None,
 ) -> Union[spaces.Box, spaces.Dict]:
     """ Get observation space.
     
@@ -96,11 +98,11 @@ def get_observation_space(
         spaces.Box: OpenAI Gym spaces.Box object describing the 
             observation given as arguments.
     """
-    camera_names = []
+    obs_names = []
     camera_channels = []
     for camera, _, channels in observation_modalities:
         camera_channels.append(3 if "RGB" in camera.name else 1)
-        camera_names.append(camera.name)
+        obs_names.append(camera.name)
 
     if use_dict:
         obs_spaces = [
@@ -108,9 +110,15 @@ def get_observation_space(
             for c in camera_channels
         ]
         if pose:
-            camera_names.append("POSE")
+            obs_names.append("POSE")
             obs_spaces.append(spaces.Box(obs_min, obs_max, shape=(3,)))
-        observation_space = spaces.Dict(dict(zip(camera_names, obs_spaces)))
+
+        if custom_obs is not None:
+            for k, (custom_min, custom_max, custom_shape) in custom_obs.items():
+                obs_names.append(k)
+                obs_spaces.append(spaces.Box(custom_min, custom_max, custom_shape))
+
+        observation_space = spaces.Dict(dict(zip(obs_names, obs_spaces)))
     else:
         observation_shape = (height_in_pixels, width_in_pixels, sum(camera_channels))
         if pose:  # flatten observation to vector if using pose

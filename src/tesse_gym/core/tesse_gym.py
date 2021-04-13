@@ -128,6 +128,7 @@ class TesseGym(GymEnv):
         )
 
         self.scene_id = scene_id
+        self.current_scene = scene_id if isinstance(scene_id, int) else None
         self._adjust_scene()
 
         # if specified, set step mode parameters
@@ -186,6 +187,7 @@ class TesseGym(GymEnv):
             self.env.request(SceneRequest(self.scene_id))
         elif isinstance(self.scene_id, list):
             scene = rnd.choice(self.scene_id)
+            self.current_scene = scene
             self.env.request(SceneRequest(scene))
 
     def advance_game_time(self, n_steps: int) -> None:
@@ -481,8 +483,15 @@ class TesseGym(GymEnv):
         rotation = self._get_agent_rotation(metadata)
 
         x = position[0]
+        y = position[1]
         z = position[2]
         yaw = rotation[2]
+
+        # Restart episode if agent falls out of scene.
+        # Workaround for what  seems to be a
+        # bug in the spawn points
+        if y < -0.5:
+            self.done = True
 
         # Get pose from start in agent frame
         position = np.array([x, z])
