@@ -10,7 +10,7 @@ Provides a Python interface for reinforcement learning using the TESSE Unity env
 
 ## Overview
 To facility extendability, this repository organizes the reinforcement learning environment into the following components:
-* **Core**: Base class for all RL tasks. Interfaces with the [TESSE simulator](https://github.com/MIT-TESSE/tesse-core)
+* **Core**: Interfaces with the [TESSE simulator](https://github.com/MIT-TESSE/tesse-core) to provide a base class for RL tasks that use TESSE.
 * **Observer**: Forms an observation from TESSE simulator data. Observations my include images (RGB, depth, segmentation), pose, and Dynamic Scene Graphs.
 * **Action Mapper**: Updates the agents state within the simulator given some policy action. 
 * **Tasks**: Derives from **Core** to implement an RL task. Tasks include GOSEEK, exploration, and point navigation.
