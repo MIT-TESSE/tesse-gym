@@ -26,7 +26,7 @@ import time
 from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -36,6 +36,7 @@ from tesse.msgs import *
 from tesse.utils import UdpListener
 
 from .continuous_control import parse_metadata
+from .utils import TesseConnectionError
 
 VideoLoggingConfig = namedtuple("VideoLoggingConfig", ["save_root", "save_freq"])
 
@@ -47,7 +48,7 @@ class TesseLogger:
         log_dir: Optional[str] = "./tesse_gym_logs/",
         udp_rate: Optional[int] = 200,
     ):
-        """ Logger for tesse_gym.
+        """Logger for tesse_gym.
 
         Args:
             udp_port (int): Port used for high rate UDP metadata
@@ -76,7 +77,7 @@ class TesseLogger:
         self.last_metadata = udp_metadata
 
     def log_step(self) -> None:
-        """ Log one step in an episode.
+        """Log one step in an episode.
 
         Logs in the following format
             <X>,<Z>,<YAW>
@@ -103,7 +104,7 @@ class TesseLogger:
         self.logger.addHandler(fileh)
 
     def get_next_log(self) -> str:
-        """ Get next log file's name
+        """Get next log file's name
 
         Follows the convention
             `<TIME>-episode-<EPISODE_COUNT>`
@@ -120,10 +121,8 @@ class TesseLogger:
 
 
 class TESSEVideoWriter:
-    def __init__(
-        self, save_root: str, env: Env, save_freq: int = 100, gym=None
-    ) -> None:
-        """ Store tesse-gym observations as a video
+    def __init__(self, save_root: str, env: Env, save_freq: int = 5, gym=None) -> None:
+        """Store tesse-gym observations as a video
 
         Args:
             name (str): Video name (including extension)
@@ -150,23 +149,15 @@ class TESSEVideoWriter:
         self.episode_num = 0
 
         self.save_root = save_root
-        i = 0
-        while True:
-            p = Path(self.save_root)
-            p = p / f"run-{i}"
-            i += 1
-            if not p.exists():
-                p.mkdir(parents=True, exist_ok=False)
-                break
-
+        Path(self.save_root).mkdir(parents=True, exist_ok=True)
         self.gym = gym
 
     def reset(self) -> None:
-        if self.episode_num % self.save_freq == 0:
-            self.write_frames = True
-        elif self.episode_num % self.save_freq != 0 and self.write_frames == True:
+        if self.write_frames:
             self.release()
             self.write_frames = False
+        if self.episode_num % self.save_freq == 0:
+            self.write_frames = True
         self.episode_num += 1
 
     def step(self) -> None:
@@ -187,10 +178,14 @@ class TESSEVideoWriter:
         if len(self.buffer) == 0:
             return
 
-        writer = self.get_video_writer(
+        # log video
+        name = (
             f"{self.save_root}"
-            f"/TESSE_gym_episode_{self.episode_num:07d}_env_{self.video_hash}.avi",
-            shape=self.buffer[0].shape[:2][::-1],
+            f"/TESSE_gym_episode_{self.episode_num:07d}_"
+            f"scene_{self.gym.current_scene}_env_{self.video_hash}"
+        )
+        writer = self.get_video_writer(
+            f"{name}.avi", shape=self.buffer[0].shape[:2][::-1],
         )
         for frame in self.buffer:
             writer.write(frame)
@@ -198,10 +193,24 @@ class TESSEVideoWriter:
         self.buffer = []
         writer.release()
 
-    @staticmethod
-    def get_images(env) -> None:
+        # log trajectory
+        if hasattr(self.gym, "episode_trajectory"):
+            np.save(f"{name}", self.gym.episode_trajectory)
+
+        # log custom stats
+        custom_stats = {}
+        if hasattr(self.gym, "n_collisions"):
+            custom_stats["n_collisions"] = self.gym.n_collisions
+        if hasattr(self.gym, "visited_cells"):
+            custom_stats["n_visited_cells"] = len(self.gym.visited_cells)
+        if hasattr(self.gym, "n_found_targets"):
+            custom_stats["n_found_targets"] = self.gym.n_found_targets
+        if len(custom_stats):
+            np.savez_compressed(f"{name}_custom_stats", **custom_stats)
+
+    def get_images(self) -> List[np.ndarray]:
         image_settings = (Compression.OFF, Channels.THREE)
-        response = env.request(
+        response = self.env.request(
             DataRequest(
                 metadata=False,
                 cameras=[
@@ -212,6 +221,8 @@ class TESSEVideoWriter:
                 ],
             )
         )
+        if response is None or len(response.images) != 4:
+            raise TesseConnectionError()
         return response.images
 
     @staticmethod

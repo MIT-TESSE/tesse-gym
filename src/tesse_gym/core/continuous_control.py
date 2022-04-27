@@ -25,9 +25,9 @@ from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
 from scipy.spatial.transform import Rotation
-
 from tesse.msgs import *
 from tesse.utils import UdpListener
+
 from tesse_gym.core.utils import TesseConnectionError
 
 # gains 1: 150, 35, 1.6, 0.27
@@ -82,7 +82,7 @@ PDGains = namedtuple(
 def get_attributes(
     root: Element, element: str, attributes: Tuple[str, ...]
 ) -> List[float]:
-    """ Get XML element attributes.
+    """Get XML element attributes.
 
     Args:
         root (Element): XML root.
@@ -97,7 +97,7 @@ def get_attributes(
 
 
 def parse_metadata(metadata: str) -> AgentState:
-    """ Get position, orientation, velocity, and acceleration from metadata
+    """Get position, orientation, velocity, and acceleration from metadata
 
     Args:
         metadata (str): TESSE metadata.
@@ -167,7 +167,7 @@ class ContinuousController:
         udp_port: Optional[int] = 9004,
         collision_thresholds: Optional[CollisionThresholds] = CollisionThresholds(),
     ):
-        """ Initialize PD controller.
+        """Initialize PD controller.
 
         Args:
             env (Env): Tesse Env object.
@@ -205,7 +205,7 @@ class ContinuousController:
     def transform(
         self, translate_x: float = 0.0, translate_z: float = 0.0, rotate_y: float = 0.0
     ) -> None:
-        """ Apply desired transform via force commands.
+        """Apply desired transform via force commands.
 
         Args:
             translate_x (float): Desired x position relative to agent.
@@ -243,13 +243,13 @@ class ContinuousController:
         self.set_goal(data)
 
     def _init_state(self, translate_x, translate_z, rotate_y):
-        """ Initialize agent's state.
+        """Initialize agent's state.
 
         If the controller does not know the agent's state,
-        which happens if the simulator has not broadcast 
-        metadata, apply small force values in the desired 
-        direction. This will advance the agent towards the 
-        goal while triggering metadata broadcast describing 
+        which happens if the simulator has not broadcast
+        metadata, apply small force values in the desired
+        direction. This will advance the agent towards the
+        goal while triggering metadata broadcast describing
         the agent's state.
 
         Args:
@@ -258,9 +258,9 @@ class ContinuousController:
             rotate_y (float): Desired y rotation in radians.
 
         Raises:
-            TesseConnectionError: Thrown if data has not 
-                been recieved from the simulator after 
-                `self.INIT_STATE_MAX_ATTEMPTS`, indicating 
+            TesseConnectionError: Thrown if data has not
+                been recieved from the simulator after
+                `self.INIT_STATE_MAX_ATTEMPTS`, indicating
                 a bad connection.
         """
         force_x = np.sign(translate_x) * self.FORCE_X_EPS
@@ -277,7 +277,7 @@ class ContinuousController:
     def _in_collision(
         self, force_z: float, z_pos_error: float, last_z_pos_err: float
     ) -> bool:
-        """ Check if agent is in collision with an object at a given step.
+        """Check if agent is in collision with an object at a given step.
 
         Count collision if
             (1) There is error in the forward direction
@@ -317,7 +317,7 @@ class ContinuousController:
         translate_z: float = 0.0,
         rotate_y: float = 0.0,
     ) -> None:
-        """ Sets the goal for the controller via creating a waypoint based
+        """Sets the goal for the controller via creating a waypoint based
         on the desired transform.
 
         Args:
@@ -334,7 +334,7 @@ class ContinuousController:
         self.goal = np.array([x, z, yaw + rotate_y])
 
     def at_goal(self, data: AgentState) -> bool:
-        """ Returns true if within position and velocity thresholds.
+        """Returns true if within position and velocity thresholds.
 
         Args:
             data (AgentState): Object with agent's position, orientation, velocity,
@@ -346,7 +346,11 @@ class ContinuousController:
         error[2] = (error[2] + np.pi) % (2 * np.pi) - np.pi  # wrap to pi
 
         current_rate = np.array(
-            [data.velocity.x, data.velocity.z, data.angular_velocity.y,]
+            [
+                data.velocity.x,
+                data.velocity.z,
+                data.angular_velocity.y,
+            ]
         )
 
         return np.all(np.abs(error) < self.position_error_threshold) and np.all(
@@ -355,7 +359,7 @@ class ContinuousController:
 
     @staticmethod
     def _wrap_angle(ang: float) -> float:
-        """ Wrap angle between [-2*pi, 2*pi]
+        """Wrap angle between [-2*pi, 2*pi]
 
         Args:
             ang (float): Angle in radians.
@@ -366,7 +370,7 @@ class ContinuousController:
         return (ang + np.pi) % (2 * np.pi) - np.pi
 
     def control(self, data: AgentState) -> Tuple[float, float]:
-        """ Applies PD-control to move to the goal point.
+        """Applies PD-control to move to the goal point.
 
         Args:
             data (AgentState): Agent's position, orientation, velocity,

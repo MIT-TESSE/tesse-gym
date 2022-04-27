@@ -61,22 +61,13 @@ class Navigation(TesseGym):
             dict: Empty dictionary as required by `step`
         """
         reward = 0.0
+        reward_info = {"env_changed": False, "collision": False}
         if action == 0:
             reward += 0.1  # reward for stepping forward
 
-        self.steps += 1
-        if self.steps > self.episode_length:
+        if self._collision(observation.metadata):
+            reward_info["collision"] = True
+            reward -= 1.0
             self.done = True
 
-        # check for collision
-        if (
-            ET.fromstring(observation.metadata)
-            .find("collision")
-            .attrib["status"]
-            .lower()
-            == "true"
-        ):
-            reward -= 1.0  # Reward for colliding
-            self.done = True  # If colliding, the scenario ends
-
-        return reward, {"env_changed": False}
+        return reward, reward_info

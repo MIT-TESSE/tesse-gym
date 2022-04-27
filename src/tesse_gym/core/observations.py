@@ -25,7 +25,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import gym.spaces as spaces
 import numpy as np
 
-from tesse.msgs import Camera, Channels, Compression, DataResponse
+from tesse.msgs import Camera, Channels, Compression
 
 ObservationConfig = namedtuple(
     "ObservationConfig",
@@ -37,15 +37,15 @@ ObservationConfig = namedtuple(
 def setup_observations(
     observation_config: ObservationConfig,
 ) -> Tuple[Tuple[Camera, Compression, Channels], Union[spaces.Box, spaces.Dict]]:
-    """ Creates observation configuration for `TesseGym`.
+    """Creates observation configuration for `TesseGym`.
 
     Parameters:
-        observation_config (ObservationConfig): Object 
+        observation_config (ObservationConfig): Object
             containing info to specify gym observations.
-    
+
     Returns:
         Tuple[Tuple[Camera, Compression, Channels], spaces.Box]
-            - Tuple listing TESSE cameras to query when getting an 
+            - Tuple listing TESSE cameras to query when getting an
                 observation.
             - spaces.Box object describing the observation space.
     """
@@ -81,21 +81,21 @@ def get_observation_space(
     use_dict: Optional[bool] = True,
     custom_obs: Optional[Dict[str, Tuple[float, float, Tuple[int, ...]]]] = None,
 ) -> Union[spaces.Box, spaces.Dict]:
-    """ Get observation space.
-    
+    """Get observation space.
+
     Parameters:
-        observation_modalities (Tuple[Camera, ...]): Tuple of observation 
+        observation_modalities (Tuple[Camera, ...]): Tuple of observation
             modalities (e.g., RGB_LEFT, DEPTH, SEGMENTATION, ...)
         height_in_pixels (int): Observation image height.
         width_in_pixels (int): Observation image width.
         pose (bool): True if pose is included in observation.
         obs_min (float): Min possible observation value.
-        obs_max (float): Max possible observation value. 
+        obs_max (float): Max possible observation value.
         use_dict (bool): Use dict space. Otherwise, flatten
             observations into vector.
-    
+
     Returns:
-        spaces.Box: OpenAI Gym spaces.Box object describing the 
+        spaces.Box: OpenAI Gym spaces.Box object describing the
             observation given as arguments.
     """
     obs_names = []
@@ -106,12 +106,19 @@ def get_observation_space(
 
     if use_dict:
         obs_spaces = [
-            spaces.Box(obs_min, obs_max, shape=(height_in_pixels, width_in_pixels, c))
+            spaces.Box(
+                obs_min,
+                obs_max,
+                shape=(height_in_pixels, width_in_pixels, c),
+                dtype=np.float64,
+            )
             for c in camera_channels
         ]
         if pose:
             obs_names.append("POSE")
-            obs_spaces.append(spaces.Box(obs_min, obs_max, shape=(3,)))
+            obs_spaces.append(
+                spaces.Box(obs_min, obs_max, shape=(3,), dtype=np.float64)
+            )
 
         if custom_obs is not None:
             for k, (custom_min, custom_max, custom_shape) in custom_obs.items():
@@ -134,20 +141,20 @@ def decode_observations(
     img_channels: Tuple[int, ...] = (3, 1, 1),
     pose_shapes: Tuple[int, ...] = (3,),
 ) -> Tuple[np.ndarray, ...]:
-    """ Decode observation vector into images and poses.
+    """Decode observation vector into images and poses.
 
     Args:
         observation (np.ndarray): Shape (N,) observation array of flattened
             images concatenated with a pose vector. Thus, N is equal to N*H*W*C + N*3.
         img_shape (Tuple[int, int]): (H, W) of all images.
         img_channels (Tuple[int, ...]): Number of channles of each image in `observation`.
-        pose_shapes (Tuple[int, ...]): Shape of all poses stacked 
+        pose_shapes (Tuple[int, ...]): Shape of all poses stacked
 
     Returns:
         Tuple[np.ndarray, ...]: Arrays of images and poses.
 
     Notes:
-        Assumes images are flattened and stacked first, followed by poses. 
+        Assumes images are flattened and stacked first, followed by poses.
     """
     decoded_obs = []
 

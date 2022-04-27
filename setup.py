@@ -33,7 +33,7 @@ setup(
     python_requires=">=3.7",
     package_dir={"": "src"},
     install_requires=[
-        "numpy >= 1.17.3",
+        "numpy <= 1.19",
         "scipy >= 1.4.1",
         "gym >= 0.15.3",
         "defusedxml >= 0.6.0",

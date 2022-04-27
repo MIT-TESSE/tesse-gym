@@ -50,7 +50,7 @@ def get_network_config(
     worker_id=0,
     n_ports=6,
 ):
-    """ Get a TESSE network configuration instance.
+    """Get a TESSE network configuration instance.
 
     Args:
         simulation_ip (str): TESSE IP address.
@@ -86,7 +86,7 @@ def set_all_camera_params(
     near_clip_plane=0.05,
     far_clip_plane=50,
 ):
-    """ Initialize gym environment camera settings.
+    """Initialize gym environment camera settings.
 
     Args:
         tesse_gym (TesseGym): Gym environment.
@@ -118,7 +118,7 @@ def set_camera_params(
     near_clip_plane,
     far_clip_plane,
 ):
-    """ Initialize gym environment camera settings.
+    """Initialize gym environment camera settings.
 
     Args:
         tesse_gym (TesseGym): Gym environment.
@@ -150,7 +150,7 @@ def _adjust_camera_params(
     near_clip_plane,
     far_clip_plane,
 ):
-    """ Set gym environment camera parameters.
+    """Set gym environment camera parameters.
 
     Args:
         tesse_gym (TesseGym): Gym environment.
@@ -174,7 +174,7 @@ def _adjust_camera_params(
 
 
 def _adjust_camera_position(tesse_gym, camera, x=-0.05, y=0, z=0):
-    """ Set gym environment camera position.
+    """Set gym environment camera position.
 
     Args:
         tesse_gym: (TesseGym): Gym environment.
@@ -187,7 +187,7 @@ def _adjust_camera_position(tesse_gym, camera, x=-0.05, y=0, z=0):
 
 
 def response_nonetype_check(obs: Union[DataResponse, None]) -> DataResponse:
-    """ Check that data from the sim is not `NoneType`.
+    """Check that data from the sim is not `NoneType`.
 
     `obs` being `NoneType` indicates that data could
     not be read from TESSE. Raise an exception if this
@@ -203,6 +203,8 @@ def response_nonetype_check(obs: Union[DataResponse, None]) -> DataResponse:
         TesseConnectionError
     """
     if obs is None:
+        raise TesseConnectionError()
+    elif hasattr(obs, "metadata") and obs.metadata is None:
         raise TesseConnectionError()
     return obs
 

@@ -19,19 +19,54 @@
 # this work.
 ###################################################################################################
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import tqdm
 
 from tesse.msgs import *
+from tesse_gym.actions.discrete import ActionMapper, DiscreteCollectNavigationMapper
+from tesse_gym.core.observations import ObservationConfig, get_observation_space
 from tesse_gym.core.utils import NetworkConfig
-from tesse_gym.tasks.goseek.goseek_logger import GoSeekLogger
+
+# from tesse_gym.tasks.goseek.goseek_logger import GoSeekLogger
 from tesse_gym.eval.agent import Agent
 from tesse_gym.eval.benchmark import Benchmark
-from tesse_gym.tasks.goseek.goseek_full_perception import GoSeekFullPerception
-from tesse_gym.tasks.goseek.goseek_logger import GoSeekLogger
+from tesse_gym.observers.image_observer import TesseImageObserver
+from tesse_gym.observers.observer import EnvObserver
+from tesse_gym.tasks.goseek.goseek import GoSeek
+from tesse_gym.tasks.goseek.logging import GoSeekLogger
 
 EVALUATION_METRICS = ["found_targets", "precision", "recall", "collisions", "steps"]
+
+
+def get_default_observer():
+    camera_config = [
+        (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
+        (Camera.SEGMENTATION, Compression.OFF, Channels.SINGLE),
+        (Camera.DEPTH, Compression.OFF, Channels.SINGLE),
+    ]
+    observation_config = ObservationConfig(
+        modalities=[c[0] for c in camera_config], pose=True, use_dict=False
+    )
+    observation_space = get_observation_space(
+        observation_modalities=camera_config, pose=True, use_dict=False
+    )
+    observer = TesseImageObserver(
+        observation_modalities=camera_config, observation_space=observation_space
+    )
+
+    return observer
+
+
+def get_default_observation_config():
+    camera_config = [
+        (Camera.RGB_LEFT, Compression.OFF, Channels.THREE),
+        (Camera.SEGMENTATION, Compression.OFF, Channels.SINGLE),
+        (Camera.DEPTH, Compression.OFF, Channels.SINGLE),
+    ]
+    return ObservationConfig(
+        modalities=[c[0] for c in camera_config], pose=True, use_dict=False
+    )
 
 
 class GoSeekBenchmark(Benchmark):
@@ -45,8 +80,13 @@ class GoSeekBenchmark(Benchmark):
         success_dist: int,
         random_seeds: List[bool] = None,
         ground_truth_mode: bool = True,
+        action_mapper: Optional[ActionMapper] = DiscreteCollectNavigationMapper(),
+        observers: Optional[EnvObserver] = get_default_observer(),
+        observation_config: Optional[
+            ObservationConfig
+        ] = get_default_observation_config(),
     ):
-        """ Configure evaluation.
+        """Configure evaluation.
 
         Args:
             scenes (List[int]): Scene IDs.
@@ -61,8 +101,10 @@ class GoSeekBenchmark(Benchmark):
         self.episode_length = episode_length
         self.random_seeds = random_seeds
         self.n_targets = n_targets
-        self.env = GoSeekFullPerception(
+        self.env = GoSeek(
             build_path=build_path,
+            observers=observers,
+            action_mapper=action_mapper,
             network_config=network_config,
             scene_id=self.scenes[0],
             success_dist=success_dist,
@@ -70,20 +112,21 @@ class GoSeekBenchmark(Benchmark):
             episode_length=max(episode_length),
             step_rate=self.STEP_RATE,
             ground_truth_mode=ground_truth_mode,
+            observation_config=observation_config,
         )
         # udp port is fixed relative to position port
         self.logger = GoSeekLogger(udp_port=network_config.position_port + 4)
 
     def evaluate(self, agent: Agent) -> Dict[str, Dict[str, float]]:
-        """ Evaluate agent.
+        """Evaluate agent.
 
-            Args:
-                agent (Agent): Agent to be evaluated.
+        Args:
+            agent (Agent): Agent to be evaluated.
 
-            Returns:
-                Dict[str, Dict[str, float]]: Results for each scene
-                    and an overall performance summary.
-            """
+        Returns:
+            Dict[str, Dict[str, float]]: Results for each scene
+                and an overall performance summary.
+        """
         results = {}
         for episode in range(len(self.scenes)):
             print(

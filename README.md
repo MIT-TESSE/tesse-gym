@@ -1,16 +1,23 @@
 # tesse-gym
 
-Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit.
+Provides a Python interface for reinforcement learning using the TESSE Unity environment and the OpenAI Gym toolkit. 
+
+## Content
+* [Overview](#overview)
+* [Installation](#installation)
+* [Supported Projects](#supported-projects)
 
 
-GOSEEK |  Navigation
-:----------:|:---------------:
-![](docs/hunt-1.gif) | ![](docs/nav-1.gif)
+## Overview
+To facility extendability, this repository organizes the reinforcement learning environment into the following components:
+* **Core**: Base class for all RL tasks. Interfaces with the [TESSE simulator](https://github.com/MIT-TESSE/tesse-core)
+* **Observer**: Forms an observation from TESSE simulator data. Observations my include images (RGB, depth, segmentation), pose, and Dynamic Scene Graphs.
+* **Action Mapper**: Updates the agents state within the simulator given some policy action. 
+* **Tasks**: Derives from **Core** to implement an RL task. Tasks include GOSEEK, exploration, and point navigation.
 
 ## Installation
 
-### From Source
-Using [Anaconda](https://www.anaconda.com/distribution/#download-section) or [miniconda](https://docs.conda.io/en/latest/miniconda.html) is highly recommended. Python 3.7 is required.
+Using [Anaconda](https://www.anaconda.com/distribution/#download-section) or [miniconda](https://docs.conda.io/en/latest/miniconda.html) is highly recommended.
 
 1. If using conda, create a new environment
 ```sh
@@ -28,8 +35,16 @@ python setup.py install
 cd ..
 ```
 
+## Supported Projects
 
-## GOSEEK Challenge
+### RL with Dynamic Scene Graphs
+
+This repo was used in paper 
+[*Hierarchical representations and Explicit Memory: Learning Effective Navigation Polices on 3D Scene Graphs*](https://arxiv.org/abs/2108.01176)
+ at the International Conference on Robotics and Automation 2022. Please see this [repository](https://github.mit.edu/TESS/dsg-rl) for paper-specific code.
+
+
+### GOSEEK Challenge
 
 The objective of this task is to navigate an agent through an office environment to collect randomly-spawned fruit as quickly as possible. 
 
@@ -37,7 +52,7 @@ The objective of this task is to navigate an agent through an office environment
 
 More specifically, the agent can select from one of four actions at each decision epoch: move forward 0.5 meters, turn left 8 degrees, turn right 8 degrees, and collect fruit within 2.0 meters of the agent's current position. Our robot is equiped with stereo cameras and an Inertial Measurement Unit (IMU), from which a state-of-the-art perception pipeline estimates three pieces of information that make up the agent's observation at each decision epoch: localization information (position and heading relative to start position), pixel-wise semantic labels for objects in the robot's field of view, and pixel-wise depth in the robot's field of view.
 
-### Quick Start
+#### Quick Start
 
 To run the example PPO baseline, install [Stable Baselines](https://stable-baselines.readthedocs.io/en/master/) and a version of [Tensorflow](https://www.tensorflow.org/) between v0.8.0 and v1.14.0 (see the [Stable Baselines docs](https://stable-baselines.readthedocs.io/en/master/guide/install.html#prerequisites) for details).
 
@@ -66,12 +81,13 @@ pip install stable-baselines
 
 Then, see the [example notebook](baselines/goseek-ppo.ipynb) to train an agent.
 
-### Challenge Details 
+#### Challenge Details 
 
-See the [GOSEEK Challenge](../../../goseek-challenge) landing page for details on setup, evaluation, and submission.
+See the [GOSEEK Challenge](https://github.com/MIT-TESSE/goseek-challenge.git) landing page for details on setup, evaluation, and submission.
 
 
-### Disclaimer
+
+## Disclaimer
 
 DISTRIBUTION STATEMENT A. Approved for public release. Distribution is unlimited.
 

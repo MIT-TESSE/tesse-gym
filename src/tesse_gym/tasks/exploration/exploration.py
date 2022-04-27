@@ -41,7 +41,7 @@ class Exploration(TesseGym):
         episode_length: Optional[int] = 400,
         step_rate: Optional[int] = 20,
         restart_on_collision: Optional[bool] = False,
-        init_hook: Optional[Callable[[TesseGym], None]] = set_all_camera_params,
+        init_function: Optional[Callable[[TesseGym], None]] = set_all_camera_params,
         ground_truth_mode: Optional[bool] = True,
         observation_config: Optional[ObservationConfig] = ObservationConfig(),
         video_log_path: str = None,
@@ -62,7 +62,7 @@ class Exploration(TesseGym):
             episode_length (int): Maximum number of steps in the episode.
             step_rate (int): If specified, game time is fixed to
                 `step_rate` FPS.
-            init_hook (callable): Method to adjust any experiment specific parameters
+            init_function (callable): Method to adjust experiment specific parameters
                 upon startup (e.g. camera parameters).
             ground_truth_mode (bool): Assumes gym is consuming ground truth data. Otherwise,
                 assumes an external perception pipeline is running. In the latter mode, discrete
@@ -82,7 +82,7 @@ class Exploration(TesseGym):
             scene_id=scene_id,
             episode_length=episode_length,
             step_rate=step_rate,
-            init_hook=init_hook,
+            init_function=init_function,
             ground_truth_mode=ground_truth_mode,
             observation_config=observation_config,
             video_log_path=video_log_path,
@@ -152,10 +152,6 @@ class Exploration(TesseGym):
         """
         time_penalty = -0.01
         reward = time_penalty
-
-        self.steps += 1
-        if self.steps >= self.episode_length:
-            self.done = True
 
         # check for falls out of scene
         if self._get_agent_position(observation.metadata)[1] < 0:

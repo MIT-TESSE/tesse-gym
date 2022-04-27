@@ -26,11 +26,11 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import numpy as np
 from gym import spaces
 
-from tesse.msgs import DataResponse, Transform
-from tesse_gym.core.observations import ObservationConfig, setup_observations
+from tesse.msgs import DataResponse
+from tesse_gym.core.logging import TESSEVideoWriter
+from tesse_gym.core.observations import ObservationConfig
 from tesse_gym.core.tesse_gym import TesseGym
 from tesse_gym.core.utils import NetworkConfig, set_all_camera_params
-from tesse_gym.core.logging import TESSEVideoWriter
 from tesse_gym.tasks.pointgoal.logging import TESSEPointGoalVideoWriter
 
 
@@ -151,11 +151,6 @@ class PointGoal(TesseGym):
         """ Compute PointGoal reward. """
         reward = 0.0  # no time penalty
 
-        self.steps += 1
-
-        if self.steps >= self.episode_length:
-            self.done = True
-
         dist_from_goal = np.linalg.norm(self.relative_pose[:2] - self.goal_point, ord=2)
 
         if self.prev_dist_from_goal is not None:
@@ -173,7 +168,7 @@ class PointGoal(TesseGym):
 
     def form_agent_observation(self, tesse_data: DataResponse) -> np.ndarray:
         """ Adds goal point to the default TesseGym observation. """
-        observation = super().form_agent_observation(tesse_data)
+        observation = super().form_observation(tesse_data)
 
         if isinstance(self._observation_space, spaces.Box):
             if len(observation.shape) == 1:
