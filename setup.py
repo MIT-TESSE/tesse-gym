@@ -42,7 +42,9 @@ setup(
         "tqdm >= 4.42.1",
         "tesse@git+https://git@github.com/MIT-TESSE/tesse-interface.git@0.1.2#egg=tesse",
     ],
-    extras_require={"rllib": ["ray[rllib]>=0.8.0", "torch>=1.4.0"],},
+    extras_require={
+        "rllib": ["ray[rllib]>=0.8.0", "torch>=1.4.0"],
+    },
     dependency_links=[
         "git+https://git@github.com/MIT-TESSE/tesse-interface.git@0.1.2#egg=tesse"
     ],

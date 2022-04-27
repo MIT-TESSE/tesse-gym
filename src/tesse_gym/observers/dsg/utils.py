@@ -6,7 +6,7 @@
 # or recommendations expressed in this material are those of the author(s) and do not necessarily
 # reflect the views of the Under Secretary of Defense for Research and Engineering.
 #
-# (c) 2020 Massachusetts Institute of Technology.
+# (c) 2022 Massachusetts Institute of Technology.
 #
 # MIT Proprietary, Subject to FAR52.227-11 Patent Rights - Ownership by the contractor (May 2014)
 #

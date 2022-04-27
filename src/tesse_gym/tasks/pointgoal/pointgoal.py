@@ -50,7 +50,7 @@ class PointGoal(TesseGym):
         video_log_path: str = None,
         video_writer_type: TESSEVideoWriter = TESSEPointGoalVideoWriter,
     ):
-        """ Initialize the TESSE PointGoal environment.
+        """Initialize the TESSE PointGoal environment.
 
         Args:
             build_path (str): Path to TESSE executable.
@@ -68,7 +68,7 @@ class PointGoal(TesseGym):
                 assumes an external perception pipeline is running. In the latter mode, discrete
                 steps will be translated to continuous control commands and observations will be
                 explicitly synced with sim time.
-            observation_config (Optional[ObservationConfig): Specifies observation (i.e., image 
+            observation_config (Optional[ObservationConfig): Specifies observation (i.e., image
                 modalities, pose).
             video_log_path (str): Write videos here. If `None` is given, no videos are written.
             video_writer_type (TESSEVideoWriter): Give a video writer type.
@@ -102,11 +102,11 @@ class PointGoal(TesseGym):
 
     @property
     def action_space(self) -> spaces.Discrete:
-        """ Agent can turn left, right, move forward, or signal `done`. """
+        """Agent can turn left, right, move forward, or signal `done`."""
         return spaces.Discrete(4)
 
     def apply_action(self, action: int) -> None:
-        """ Turn left, right, move forward, or signal done.
+        """Turn left, right, move forward, or signal done.
 
         Args:
             action (int): Take `action` in `self.action_space`.
@@ -148,7 +148,7 @@ class PointGoal(TesseGym):
     def compute_reward(
         self, observation: DataResponse, action: int
     ) -> Tuple[float, Dict[str, Any]]:
-        """ Compute PointGoal reward. """
+        """Compute PointGoal reward."""
         reward = 0.0  # no time penalty
 
         dist_from_goal = np.linalg.norm(self.relative_pose[:2] - self.goal_point, ord=2)
@@ -167,7 +167,7 @@ class PointGoal(TesseGym):
         return reward, {"env_changed": False}
 
     def form_agent_observation(self, tesse_data: DataResponse) -> np.ndarray:
-        """ Adds goal point to the default TesseGym observation. """
+        """Adds goal point to the default TesseGym observation."""
         observation = super().form_observation(tesse_data)
 
         if isinstance(self._observation_space, spaces.Box):
@@ -181,11 +181,11 @@ class PointGoal(TesseGym):
         return observation
 
     def _read_spawn_point_file(self, points_file: str) -> np.ndarray:
-        """ Read points from TESSE spawn points file.
+        """Read points from TESSE spawn points file.
 
         Args:
             points_file (str): Path to TESSE spawn points file.
-        
+
         Returns:
             np.ndarray, shape=(N, 2)
                 `N` (x, z) spawn points, corresponding to location
@@ -201,7 +201,7 @@ class PointGoal(TesseGym):
         )
 
     def _load_spawn_points(self, sim_path: str) -> Dict[int, np.ndarray]:
-        """ Get TESSE spawn points for each scene.
+        """Get TESSE spawn points for each scene.
 
         Args:
             sim_path (str): Path to TESSE build. Path to spawn
@@ -209,9 +209,9 @@ class PointGoal(TesseGym):
 
         Returns:
             Dict[int, np.ndarray]: Scene -> spawn points dict.
-                Spawn points are of shape (N, 2). `N` is the number 
-                of points. Each point is in the (x, z) coord on the 
-                horizontal plane. 
+                Spawn points are of shape (N, 2). `N` is the number
+                of points. Each point is in the (x, z) coord on the
+                horizontal plane.
         """
         sim_path = Path(sim_path)
         spawn_point_root = (

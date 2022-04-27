@@ -29,9 +29,9 @@ from tesse_gym.core.logging import TESSEVideoWriter
 
 class TESSEPointGoalVideoWriter(TESSEVideoWriter):
     def step(self) -> None:
-        """ Create frame from observation. 
+        """Create frame from observation.
 
-        The PointGoal extension writes the goal pose and current pose 
+        The PointGoal extension writes the goal pose and current pose
         as text on the video
         """
         if self.write_frames:
@@ -64,7 +64,7 @@ class TESSEPointGoalVideoWriter(TESSEVideoWriter):
     def _add_text_to_img(
         self, img: np.ndarray, text: str, position: Tuple[int, int]
     ) -> None:
-        """ Wrapper around cv2.putText. """
+        """Wrapper around cv2.putText."""
         cv2.putText(
             img,
             text,

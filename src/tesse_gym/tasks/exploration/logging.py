@@ -29,7 +29,7 @@ from tesse_gym.core.logging import TESSEVideoWriter
 
 class TESSEExplorationVideoWriter(TESSEVideoWriter):
     def step(self) -> None:
-        """ Create from after agent steps.
+        """Create from after agent steps.
 
         The exploration exention adds the number of cells
         explored and the cell size as text on the video.
@@ -50,7 +50,9 @@ class TESSEExplorationVideoWriter(TESSEVideoWriter):
                 relative_pose = self.gym.relative_pose
                 show_img = show_img.copy()  # cv2.putText can't handle np array views
                 self._add_text_to_img(
-                    show_img, f"Number of visited cells: {n_visited_cells}", (10, 25),
+                    show_img,
+                    f"Number of visited cells: {n_visited_cells}",
+                    (10, 25),
                 )
                 self._add_text_to_img(
                     show_img, f"Cell size: {cell_size}m x {cell_size}m", (10, 55)
@@ -65,7 +67,7 @@ class TESSEExplorationVideoWriter(TESSEVideoWriter):
     def _add_text_to_img(
         self, img: np.ndarray, text: str, position: Tuple[int, int]
     ) -> None:
-        """ Wrapper around cv2.putText. """
+        """Wrapper around cv2.putText."""
         cv2.putText(
             img,
             text,

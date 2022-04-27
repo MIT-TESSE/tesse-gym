@@ -29,11 +29,11 @@ from tesse_gym.core.tesse_gym import TesseGym
 class Navigation(TesseGym):
     @property
     def action_space(self):
-        """ Agent can turn left, right, or move forward. """
+        """Agent can turn left, right, or move forward."""
         return spaces.Discrete(3)
 
     def apply_action(self, action):
-        """ Turn left, right, or move forward.
+        """Turn left, right, or move forward.
 
         Args:
             action (action_space): Make agent take `action`.
@@ -48,7 +48,7 @@ class Navigation(TesseGym):
             pass
 
     def compute_reward(self, observation, action):
-        """ Reward agent for moving forward. Penalize agent for
+        """Reward agent for moving forward. Penalize agent for
         colliding with the environment.
 
         Args:

@@ -49,11 +49,11 @@ class Exploration(TesseGym):
         cell_size: int = 1,
         collision_penalty: float = 0,
     ):
-        """ Initialize the TESSE exploration environment.
+        """Initialize the TESSE exploration environment.
 
         The agent is tasked with exploring the maximum possible space
-        within the alloted episode length. The space is divided into 2D 
-        grids of a user specified size. 
+        within the alloted episode length. The space is divided into 2D
+        grids of a user specified size.
 
         Args:
             build_path (str): Path to TESSE executable.
@@ -68,7 +68,7 @@ class Exploration(TesseGym):
                 assumes an external perception pipeline is running. In the latter mode, discrete
                 steps will be translated to continuous control commands and observations will be
                 explicitly synced with sim time.
-            observation_config (Optional[ObservationConfig): Specifies observation (i.e., image 
+            observation_config (Optional[ObservationConfig): Specifies observation (i.e., image
                 modalities, pose).
             video_log_path (str): Write videos here. If `None` is given, no videos are written.
             video_writer_type (TESSEVideoWriter): Give a video writer type.
@@ -99,11 +99,11 @@ class Exploration(TesseGym):
 
     @property
     def action_space(self) -> spaces.Discrete(3):
-        """ Agent can turn left, right, or move forward. """
+        """Agent can turn left, right, or move forward."""
         return spaces.Discrete(3)
 
     def apply_action(self, action: int) -> None:
-        """ Turn left, right, or move forward.
+        """Turn left, right, or move forward.
 
         Args:
             action (int): Take `action` in `self.action_space`.
@@ -120,7 +120,7 @@ class Exploration(TesseGym):
     def reset(
         self, scene_id: Optional[int] = None, random_seed: Optional[int] = None
     ) -> np.ndarray:
-        """ Reset environment upon episode completion. """
+        """Reset environment upon episode completion."""
         observation = super().reset(scene_id, random_seed)
 
         self.visited_cells = []
@@ -131,18 +131,18 @@ class Exploration(TesseGym):
     def compute_reward(
         self, observation: DataResponse, action: int
     ) -> Tuple[float, Dict[str, Any]]:
-        """ Compute exploration reward. 
-        
+        """Compute exploration reward.
+
         Small time penalty. Give reward for entering
         a new cell.
 
         observation (DataResponse): tesse_interface
-            DataResponse object containing a combination 
+            DataResponse object containing a combination
             of image and pose data
-        
-        action (int): The agent's action in 
+
+        action (int): The agent's action in
             `self.action_space`. See `apply_action`
-            for mapping from action id to agent 
+            for mapping from action id to agent
             behavior.
 
         Returns:

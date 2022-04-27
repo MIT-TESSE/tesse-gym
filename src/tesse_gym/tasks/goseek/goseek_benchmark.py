@@ -28,7 +28,6 @@ from tesse_gym.actions.discrete import ActionMapper, DiscreteCollectNavigationMa
 from tesse_gym.core.observations import ObservationConfig, get_observation_space
 from tesse_gym.core.utils import NetworkConfig
 
-# from tesse_gym.tasks.goseek.goseek_logger import GoSeekLogger
 from tesse_gym.eval.agent import Agent
 from tesse_gym.eval.benchmark import Benchmark
 from tesse_gym.observers.image_observer import TesseImageObserver

@@ -211,7 +211,7 @@ def response_nonetype_check(obs: Union[DataResponse, None]) -> DataResponse:
 
 class TesseConnectionError(Exception):
     def __init__(self):
-        """ Indicates data cannot be read from TESSE. """
+        """Indicates data cannot be read from TESSE."""
         self.message = (
             "Cannot receive data from the simulator. "
             "The connection is blocked or the simulator is not running. "

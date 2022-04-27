@@ -89,7 +89,7 @@ class TESSEGoSeekVideoWriter(TESSEVideoWriter):
     def _add_text_to_img(
         self, img: np.ndarray, text: str, position: Tuple[int, int]
     ) -> None:
-        """ Wrapper around cv2.putText. """
+        """Wrapper around cv2.putText."""
         cv2.putText(
             img,
             text,
